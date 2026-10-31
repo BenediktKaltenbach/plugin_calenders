@@ -1,0 +1,49 @@
+name: Release
+
+# Ein Tag wie v0.1.0 erzeugt ein GitHub-Release mit dtrv-termine.zip (inkl. vendor/).
+# WordPress findet das Update über den Plugin Update Checker.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer:v2
+
+      - name: Version prüfen
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          KOPF=$(grep -m1 -E '^\s*\*\s*Version:' dtrv-termine.php | awk '{print $NF}')
+          KONSTANTE=$(grep -m1 -E "^const VERSION" dtrv-termine.php | sed -E "s/.*'(.*)'.*/\1/")
+          echo "Tag: $TAG, Kopf: $KOPF, Konstante: $KONSTANTE"
+          if [ "$TAG" != "$KOPF" ] || [ "$TAG" != "$KONSTANTE" ]; then
+            echo "::error::Tag v$TAG passt nicht zur Version in dtrv-termine.php ($KOPF / $KONSTANTE)"
+            exit 1
+          fi
+
+      - name: Abhängigkeiten installieren
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Tests
+        run: php tests/run.php
+
+      - name: ZIP bauen
+        run: |
+          mkdir -p build/dtrv-termine
+          rsync -a --exclude-from=.distignore ./ build/dtrv-termine/
+          cd build && zip -qr ../dtrv-termine.zip dtrv-termine
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dtrv-termine.zip
+          generate_release_notes: true

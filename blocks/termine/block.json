@@ -1,0 +1,25 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "dtrv/termine",
+	"title": "DTRV-Termine",
+	"category": "widgets",
+	"icon": "calendar-alt",
+	"description": "Terminliste aus den Google Kalendern des DTRV.",
+	"keywords": [ "termine", "kalender", "wettkampf", "breitensport" ],
+	"textdomain": "dtrv-termine",
+	"attributes": {
+		"kategorien": { "type": "array", "items": { "type": "string" }, "default": [] },
+		"anzahl": { "type": "integer", "default": 0 },
+		"monate": { "type": "integer", "default": 0 },
+		"vergangene": { "type": "boolean", "default": false }
+	},
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ],
+		"spacing": { "margin": true, "padding": true }
+	},
+	"editorScript": "file:./index.js",
+	"style": "dtrv-termine",
+	"render": "file:./render.php"
+}

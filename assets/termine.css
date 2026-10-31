@@ -1,0 +1,142 @@
+/* Terminliste – angelehnt an die Spectra-„Call to Action“-Einträge auf /breitensport/ und /wettkampf/. */
+
+.dtrv-termine {
+	--dtrv-akzent: #006666;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.dtrv-termin {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem 1.5rem;
+	margin: 0 0 1.5rem;
+	padding: 0;
+}
+
+.dtrv-termin__titel {
+	margin: 0 0 10px;
+	font-size: 20px;
+	font-weight: 400;
+	line-height: 1.1;
+}
+
+.dtrv-termin__meta {
+	margin: 0;
+}
+
+.dtrv-termin__land {
+	text-decoration: none;
+	border: 0;
+	cursor: help;
+}
+
+.dtrv-termin__hinweis {
+	display: inline-block;
+	margin-left: 0.4em;
+	padding: 0 0.5em;
+	border-radius: 3px;
+	background: #f3e6c4;
+	font-size: 0.75em;
+	line-height: 1.6;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.is-abgesagt .dtrv-termin__titel,
+.is-abgesagt time {
+	text-decoration: line-through;
+}
+
+.is-abgesagt .dtrv-termin__hinweis {
+	background: #f6d5d5;
+}
+
+.dtrv-termin__aktionen {
+	display: flex;
+	flex-wrap: wrap;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 10px 15px;
+}
+
+.dtrv-termin__klasse {
+	display: inline-flex;
+	align-items: center;
+	padding: 10px;
+	border-radius: 5px;
+	color: inherit;
+	font-size: 16px;
+	line-height: 1;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.dtrv-termin__klasse svg {
+	width: 20px;
+	height: 20px;
+	margin-left: 4px;
+	fill: currentColor;
+}
+
+.dtrv-termin__klasse:hover,
+.dtrv-termin__klasse:focus {
+	background: #3a3a3a;
+	color: #fff;
+}
+
+.dtrv-termin__knopf {
+	display: inline-flex;
+	align-items: center;
+	padding: 15px 30px;
+	border-radius: 5px;
+	background: var(--dtrv-akzent);
+	color: #fff;
+	font-size: 14px;
+	line-height: 1;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.dtrv-termin__knopf:hover,
+.dtrv-termin__knopf:focus {
+	color: #fff;
+	filter: brightness(1.15);
+}
+
+.dtrv-termin__knopf svg {
+	width: 14px;
+	height: 14px;
+	margin-left: 10px;
+	fill: currentColor;
+}
+
+.dtrv-termin__knopf--zweit {
+	background: transparent;
+	color: var(--dtrv-akzent);
+	box-shadow: inset 0 0 0 1px var(--dtrv-akzent);
+}
+
+.dtrv-termin__knopf--zweit:hover,
+.dtrv-termin__knopf--zweit:focus {
+	color: var(--dtrv-akzent);
+}
+
+.dtrv-termin__knopf--leer {
+	opacity: 0.6;
+	cursor: default;
+}
+
+@media (max-width: 767px) {
+	.dtrv-termin {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.dtrv-termin__aktionen {
+		justify-content: flex-start;
+	}
+}

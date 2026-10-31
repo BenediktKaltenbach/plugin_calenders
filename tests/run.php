@@ -1,0 +1,78 @@
+<?php
+/**
+ * Kleine Tests ohne WordPress: php tests/run.php (nach composer install).
+ */
+
+namespace DTRV\Termine;
+
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../includes/Format.php';
+require __DIR__ . '/../includes/Parser.php';
+require __DIR__ . '/../includes/Feed.php';
+
+$fehler = 0;
+function pruefe( string $name, $ist, $soll ): void {
+	global $fehler;
+	if ( $ist === $soll ) {
+		echo "ok   $name\n";
+		return;
+	}
+	++$fehler;
+	echo "FEHL $name\n     ist:  " . var_export( $ist, true ) . "\n     soll: " . var_export( $soll, true ) . "\n";
+}
+
+$tz = Format::zeitzone();
+$ts = static fn( string $s ) => ( new \DateTimeImmutable( $s, $tz ) )->getTimestamp();
+
+// Datumsformat.
+pruefe( 'mehrtägig im Monat', Format::zeitraum( $ts( '2027-04-02' ), $ts( '2027-04-06' ), true ), '2.–5.4.2027' );
+pruefe( 'eintägig', Format::zeitraum( $ts( '2027-05-23' ), $ts( '2027-05-24' ), true ), '23.5.2027' );
+pruefe( 'über Monatsgrenze', Format::zeitraum( $ts( '2027-04-30' ), $ts( '2027-05-03' ), true ), '30.4.–2.5.2027' );
+pruefe( 'über Jahresgrenze', Format::zeitraum( $ts( '2026-12-31' ), $ts( '2027-01-03' ), true ), '31.12.2026–2.1.2027' );
+pruefe( 'mit Uhrzeit', Format::zeitraum( $ts( '2027-05-23 10:00' ), $ts( '2027-05-23 14:00' ), false ), '23.5.2027, 10:00–14:00 Uhr' );
+pruefe( 'Flagge', Format::flagge( 'NL' ), "\u{1F1F3}\u{1F1F1}" );
+
+// Beschreibung.
+$b = Parser::beschreibung( "Freier Text\n\n---\nAnmeldung: https://my.raceresult.com/392357/\n STATUS : abgesagt\nLand: CZ\nFoo: bar" );
+pruefe( 'Text', $b['text'], 'Freier Text' );
+pruefe( 'Felder', $b['felder'], array( 'anmeldung' => 'https://my.raceresult.com/392357/', 'status' => 'abgesagt', 'land' => 'CZ' ) );
+pruefe( 'Warnung unbekannt', $b['warnungen'], array( 'Unbekannter Schlüssel „Foo“' ) );
+$b = Parser::beschreibung( "Infos: kein Link\n---\nInfos: nichts" );
+pruefe( 'Ungültige URL', array( $b['text'], $b['felder'], count( $b['warnungen'] ) ), array( 'Infos: kein Link', array(), 1 ) );
+
+// Feed.
+$termine = Feed::termine(
+	file_get_contents( __DIR__ . '/fixtures/beispiel.ics' ),
+	new \DateTimeImmutable( '2027-01-01', $tz ),
+	new \DateTimeImmutable( '2028-01-01', $tz )
+);
+$nach_titel = array();
+foreach ( $termine as $t ) {
+	$nach_titel[ $t['titel'] ][] = $t;
+}
+pruefe( 'Anzahl Termine', count( $termine ), 6 );
+
+$o = $nach_titel['Osterchallenge'][0];
+pruefe( 'Oster Datum', Format::zeitraum( $o['start'], $o['ende'], $o['ganztaegig'] ), '2.–5.4.2027' );
+pruefe( 'Oster Felder', $o['felder'], array( 'infos' => 'https://dtrv.net/osterchallenge/', 'klasse' => 'F | 0-5' ) );
+pruefe( 'Oster Text', $o['text'], 'Vier Tage Tretroller fahren.' );
+pruefe( 'Oster Warnung', $o['warnungen'], array( 'Unbekannter Schlüssel „Farbe“' ) );
+
+$r = $nach_titel['Rheinradeln'][0];
+pruefe( 'Rhein Datum', Format::zeitraum( $r['start'], $r['ende'], $r['ganztaegig'] ), '23.5.2027, 10:00–14:00 Uhr' );
+pruefe( 'Rhein Felder', $r['felder'], array( 'anmeldung' => 'https://www.example.org/rheinradeln', 'status' => 'vorlaeufig', 'land' => 'NL' ) );
+pruefe( 'Rhein Status', $r['status'], 'vorlaeufig' );
+
+pruefe( 'Serie: 2 reguläre + 1 Ausnahme', array( count( $nach_titel['Lauftreff'] ), count( $nach_titel['Lauftreff (später)'] ) ), array( 2, 1 ) );
+$s = $nach_titel['Lauftreff (später)'][0];
+pruefe( 'Ausnahme verschoben', Format::zeitraum( $s['start'], $s['ende'], false ), '13.1.2027, 20:00–21:30 Uhr' );
+$schluessel = array_column( $termine, 'schluessel' );
+pruefe( 'Schlüssel eindeutig', count( array_unique( $schluessel ) ), count( $schluessel ) );
+
+$e = $nach_titel['Autofreies Eistal'][0];
+pruefe( 'Eistal abgesagt (STATUS:CANCELLED)', $e['status'], 'abgesagt' );
+pruefe( 'Eistal ohne DTEND', Format::zeitraum( $e['start'], $e['ende'], true ), '3.10.2027' );
+pruefe( 'Eistal ohne Trenner', array( $e['text'], $e['felder'] ), array( 'Text ohne Trenner', array( 'detail' => 'beitrag' ) ) );
+
+echo $fehler ? "\n$fehler Fehler\n" : "\nAlles ok\n";
+exit( $fehler ? 1 : 0 );

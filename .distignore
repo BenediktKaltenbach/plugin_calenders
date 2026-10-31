@@ -1,0 +1,9 @@
+.git
+.github
+.gitignore
+.distignore
+build
+tests
+*.zip
+CLAUDE.md
+Plan DTRV-Termine-Plugin.md
