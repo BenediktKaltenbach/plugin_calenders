@@ -70,8 +70,12 @@ Anyone can suggest an event via the **DTRV-Terminvorschlag** block: title, categ
 
 - **Spam protection without reCAPTCHA:** hidden honeypot field, minimum fill-in time of 5 seconds, at most 5 suggestions per IP per hour.
 - **Email** to the configured address with all details and **approve** / **reject** links. The links open a confirmation page with a button first, so email security scanners cannot trigger them. No WordPress login is needed.
-- **Approving** only marks the suggestion, the plugin does not write to Google. The button **"In Google Kalender anlegen"** opens Google Calendar with everything pre-filled, including key lines. Pick the right calendar and save.
-- **Termine › Vorschläge** is the review list. "Eingetragen" sends the submitter a thank-you email and then deletes their email address. "Ablehnen" archives the suggestion and deletes email and image.
+- **Termine › Vorschläge** is the review list with three actions, in this order:
+  1. **Eintragen** opens Google Calendar with everything pre-filled, including key lines, and marks the suggestion as approved. The plugin itself never writes to Google, so pick the right calendar and save there.
+  2. **Erledigt – Dankes-Mail senden** sends the submitter a thank-you email and then deletes their email address.
+  3. **Ablehnen** archives the suggestion and deletes email and image.
+- The approve link in the email only marks the suggestion as approved, so someone else can enter it later.
+- Each suggestion shows whether WordPress handed the notification mail to the mail server (column "Mail"). Settings has a "Test-Mail senden" button and counts suggestions dropped by spam protection.
 - **Privacy:** name and email are stored only until the suggestion is processed. The IP address is only used hashed, for one hour, as a spam counter.
 
 ## REST endpoints

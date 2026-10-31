@@ -287,8 +287,8 @@ final class Vorschlaege {
 			if ( 'freigeben' === $aktion ) {
 				$html = '<h1>Freigegeben</h1><p>„' . $titel . '“ ist als freigegeben markiert.</p>'
 					. '<p>Jetzt noch in den Kalender <strong>' . esc_html( Plugin::kategorien()[ $d['kategorie'] ] ?? '' ) . '</strong> eintragen (oben links den Kalender auswählen):</p>'
-					. '<p><a class="button" href="' . esc_url( self::google_link( $id ) ) . '" target="_blank" rel="noopener">In Google Kalender anlegen</a></p>'
-					. '<p>Danach im WordPress-Admin unter Termine › Vorschläge „Eingetragen“ wählen, dann bekommt der Einreicher eine Dankes-Mail.</p>';
+					. '<p><a class="button" href="' . esc_url( self::google_link( $id ) ) . '" target="_blank" rel="noopener">Eintragen</a></p>'
+					. '<p>Danach im WordPress-Admin unter Termine › Vorschläge „Erledigt – Dankes-Mail senden“ klicken.</p>';
 			} else {
 				$html = '<h1>Abgelehnt</h1><p>„' . $titel . '“ ist abgelehnt und archiviert. Kontaktdaten und Bild wurden gelöscht.</p>';
 			}
@@ -383,19 +383,53 @@ final class Vorschlaege {
 		);
 	}
 
+	/**
+	 * Aktionen eines Vorschlags in fester Reihenfolge:
+	 * Eintragen (öffnet Google Kalender, markiert als freigegeben) · Erledigt · Ablehnen.
+	 *
+	 * @return array<string, array{label: string, url: string, neues_fenster: bool}>
+	 */
+	private static function aktionen( int $id ): array {
+		$status   = self::daten( $id )['status'];
+		$aktionen = array();
+		if ( in_array( $status, array( 'neu', 'freigegeben' ), true ) ) {
+			$aktionen['google'] = array(
+				'label'         => 'Eintragen',
+				'url'           => self::status_url( $id, 'google' ),
+				'neues_fenster' => true,
+			);
+		}
+		if ( 'eingetragen' !== $status ) {
+			$aktionen['eingetragen'] = array(
+				'label'         => 'Erledigt – Dankes-Mail senden',
+				'url'           => self::status_url( $id, 'eingetragen' ),
+				'neues_fenster' => false,
+			);
+		}
+		if ( 'abgelehnt' !== $status ) {
+			$aktionen['abgelehnt'] = array(
+				'label'         => 'Ablehnen',
+				'url'           => self::status_url( $id, 'abgelehnt' ),
+				'neues_fenster' => false,
+			);
+		}
+		return $aktionen;
+	}
+
 	public static function zeilen_aktionen( array $aktionen, \WP_Post $post ): array {
 		if ( self::NAME !== $post->post_type ) {
 			return $aktionen;
 		}
 		unset( $aktionen['inline hide-if-no-js'] );
-		$status = self::daten( $post->ID )['status'];
-		foreach ( array( 'freigegeben' => 'Freigeben', 'eingetragen' => 'Eingetragen', 'abgelehnt' => 'Ablehnen' ) as $ziel => $label ) {
-			if ( $ziel !== $status ) {
-				$aktionen[ 'dtrv_' . $ziel ] = '<a href="' . esc_url( self::status_url( $post->ID, $ziel ) ) . '">' . esc_html( $label ) . '</a>';
-			}
+		foreach ( self::aktionen( $post->ID ) as $schluessel => $a ) {
+			$aktionen[ 'dtrv_' . $schluessel ] = sprintf(
+				'<a href="%s"%s>%s</a>',
+				esc_url( $a['url'] ),
+				$a['neues_fenster'] ? ' target="_blank" rel="noopener"' : '',
+				esc_html( $a['label'] )
+			);
 		}
-		$aktionen['dtrv_google'] = '<a href="' . esc_url( self::google_link( $post->ID ) ) . '" target="_blank" rel="noopener">In Google Kalender anlegen</a>';
-		$aktionen['dtrv_mail']   = '<a href="' . esc_url( self::status_url( $post->ID, 'mail' ) ) . '">Mail erneut senden</a>';
+		$aktionen['dtrv_mail'] = '<a href="' . esc_url( self::status_url( $post->ID, 'mail' ) ) . '">Mail erneut senden</a>';
 		return $aktionen;
 	}
 
@@ -406,6 +440,14 @@ final class Vorschlaege {
 			wp_die( 'Keine Berechtigung.' );
 		}
 		$status = sanitize_key( $_GET['status'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification
+		if ( 'google' === $status ) {
+			// „Eintragen“: als freigegeben markieren und Google Kalender vorausgefüllt öffnen.
+			if ( 'neu' === self::daten( $id )['status'] ) {
+				self::status_setzen( $id, 'freigegeben' );
+			}
+			wp_redirect( self::google_link( $id ) ); // phpcs:ignore WordPress.Security.SafeRedirect -- feste Google-Adresse
+			exit;
+		}
 		if ( 'mail' === $status ) {
 			self::mail_neu( $id );
 		} else {
@@ -425,13 +467,18 @@ final class Vorschlaege {
 				echo '<p>Status: <strong>' . esc_html( self::STATUS[ $d['status'] ] ?? $d['status'] ) . '</strong></p>';
 				echo self::zusammenfassung( $post->ID, true ); // phpcs:ignore WordPress.Security.EscapeOutput
 				echo '<p style="margin-top:1em">';
-				printf( '<a class="button button-primary" href="%s" target="_blank" rel="noopener">In Google Kalender anlegen</a> ', esc_url( self::google_link( $post->ID ) ) );
-				foreach ( array( 'freigegeben' => 'Freigeben', 'eingetragen' => 'Eingetragen (Dankes-Mail senden)', 'abgelehnt' => 'Ablehnen' ) as $ziel => $label ) {
-					if ( $ziel !== $d['status'] ) {
-						printf( '<a class="button" href="%s">%s</a> ', esc_url( self::status_url( $post->ID, $ziel ) ), esc_html( $label ) );
-					}
+				foreach ( self::aktionen( $post->ID ) as $schluessel => $a ) {
+					printf(
+						'<a class="button%s" href="%s"%s>%s</a> ',
+						'google' === $schluessel ? ' button-primary' : '',
+						esc_url( $a['url'] ),
+						$a['neues_fenster'] ? ' target="_blank" rel="noopener"' : '',
+						esc_html( $a['label'] )
+					);
 				}
-				echo '</p><p class="description">„Eingetragen“ und „Ablehnen“ löschen die E-Mail-Adresse des Einreichers. Ablehnen löscht auch das Bild.</p>';
+				echo '</p><p class="description"><strong>Eintragen</strong> öffnet Google Kalender mit allen Angaben (Kalender oben links wählen, speichern) und markiert den Vorschlag als freigegeben. '
+					. 'Danach <strong>Erledigt</strong> klicken: Der Einreicher bekommt eine Dankes-Mail, seine E-Mail-Adresse wird gelöscht. '
+					. '<strong>Ablehnen</strong> löscht E-Mail-Adresse und Bild.</p>';
 			},
 			self::NAME,
 			'normal',
