@@ -69,7 +69,8 @@ final class PostType {
 			'kategorie' => 'Kategorie',
 			'ort'       => 'Ort',
 			'felder'    => 'Angaben',
-			'detail'    => 'Detailseite',
+			'seite'     => 'Seite',
+			'beitrag'   => 'Beitrag',
 			'bild'      => 'Bild',
 			'hinweise'  => 'Hinweise',
 		);
@@ -94,8 +95,9 @@ final class PostType {
 				}
 				echo wp_kses_post( implode( '<br>', $teile ) );
 				break;
-			case 'detail':
-				echo wp_kses_post( Detailseiten::spalte_detail( $post_id ) );
+			case 'seite':
+			case 'beitrag':
+				echo wp_kses_post( Detailseiten::spalte( $post_id, $spalte ) );
 				break;
 			case 'bild':
 				echo wp_kses_post( Detailseiten::spalte_bild( $post_id ) );

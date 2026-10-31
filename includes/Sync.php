@@ -38,6 +38,7 @@ final class Sync {
 		}
 		set_transient( self::SPERRE, 1, 5 * MINUTE_IN_SECONDS );
 
+		Detailseiten::migrieren();
 		self::$index = self::index();
 		$status      = array();
 		foreach ( Plugin::kategorien() as $slug => $label ) {
@@ -166,7 +167,7 @@ final class Sync {
 			}
 		}
 
-		// Detailseiten-Entwürfe für kommende Termine (einmalig je Termin).
+		// Seite (und ggf. Beitrag) für kommende Termine, einmalig je Termin.
 		foreach ( array_keys( $gesehen ) as $schluessel ) {
 			Detailseiten::pruefen( (int) ( self::$index[ $schluessel ]['id'] ?? 0 ) );
 		}
@@ -214,7 +215,8 @@ final class Sync {
 			// Dublette: Eintrag mit Detailseite gewinnt, der andere wird gelöscht.
 			$behalten = $index[ $schluessel ];
 			$weg      = $eintrag;
-			if ( ! get_post_meta( $behalten['id'], '_dtrv_detail_post', true ) && get_post_meta( $id, '_dtrv_detail_post', true ) ) {
+			$hat      = static fn( int $p ) => Detailseiten::id( $p, 'seite' ) || Detailseiten::id( $p, 'beitrag' );
+			if ( ! $hat( $behalten['id'] ) && $hat( $id ) ) {
 				[ $behalten, $weg ] = array( $eintrag, $behalten );
 			}
 			$index[ $schluessel ] = $behalten;

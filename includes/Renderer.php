@@ -214,6 +214,11 @@ final class Renderer {
 		if ( ! empty( $felder['anmeldung'] ) && 'abgesagt' !== $status && ! $vorbei ) {
 			$knoepfe .= self::knopf( $felder['anmeldung'], 'Anmelden', false );
 		}
+		// Im Beitrag (Startseite) zur Seite des Termins führen.
+		$seite = Detailseiten::id( $termin_id, 'seite' );
+		if ( $seite && 'publish' === get_post_status( $seite ) && get_the_ID() !== $seite ) {
+			$knoepfe .= self::knopf( (string) get_permalink( $seite ), 'Alle Infos', ! empty( $knoepfe ) );
+		}
 		$hier = untrailingslashit( (string) get_permalink() );
 		if ( ! empty( $felder['infos'] ) && untrailingslashit( $felder['infos'] ) !== $hier ) {
 			$knoepfe .= self::knopf( $felder['infos'], 'Weitere Infos', ! empty( $knoepfe ) );
@@ -224,13 +229,10 @@ final class Renderer {
 		return $html . '</div>';
 	}
 
-	/** Veröffentlichte Detailseite hat Vorrang vor dem Link aus „Infos:“. */
+	/** Veröffentlichte Seite (sonst Beitrag) hat Vorrang vor dem Link aus „Infos:“. */
 	private static function infos_url( int $post_id, array $felder ): string {
-		$detail = (int) get_post_meta( $post_id, '_dtrv_detail_post', true );
-		if ( $detail && 'publish' === get_post_status( $detail ) ) {
-			return (string) get_permalink( $detail );
-		}
-		return $felder['infos'] ?? '';
+		$detail = Detailseiten::link( $post_id );
+		return '' !== $detail ? $detail : ( $felder['infos'] ?? '' );
 	}
 
 	private static function knopf( string $url, string $text, bool $zweitrangig ): string {

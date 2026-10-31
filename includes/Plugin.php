@@ -29,6 +29,7 @@ final class Plugin {
 		add_action( 'template_redirect', array( Vorschlaege::class, 'link_aufruf' ), 1 );
 
 		if ( is_admin() ) {
+			add_action( 'admin_init', array( Detailseiten::class, 'migrieren' ) );
 			PostType::admin();
 			Vorschlaege::admin();
 			Detailseiten::admin();

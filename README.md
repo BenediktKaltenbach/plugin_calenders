@@ -17,7 +17,7 @@ The plugin's admin and front-end UI is in German, because the site is German.
 - **Google Calendars:** paste the **secret address in iCal format** for each category (Google Calendar › calendar settings › "Integrate calendar"). These addresses must never be committed to this repository.
 - **Sync table:** shows the name of the Google Calendar behind each address (with a warning if it does not match the category), the last sync, counts and errors. **"Jetzt abgleichen"** syncs immediately.
 - **Cron job:** let your host call the displayed URL hourly (All-Inkl: KAS › Tools › Cronjobs). WP-Cron only syncs as a fallback if the real cron has not run for 50 minutes.
-- **Detail pages:** default per category (post / page / none), WordPress post category and default featured image.
+- **Detail pages:** parent page for event pages; per category whether a draft post is created automatically, the WordPress post category and the default featured image.
 - **Event suggestions:** recipient address(es) for new suggestions. If empty, the WordPress admin email is used.
 
 **Termine › Alle Termine** lists all mirrored events with date, category, parsed fields, detail page and image status and warnings (e.g. typos in key lines). Events deleted in Google are only flagged, not deleted. If a calendar feed is empty twice in a row, its events are flagged as deleted.
@@ -43,7 +43,7 @@ Status: vorläufig
 | `Infos:` | URL | "Infos" button (otherwise "Infos folgen") |
 | `Klasse:` | e.g. `F \| 0-5` | difficulty class linked to the explanation page |
 | `Land:` | ISO code, e.g. `CZ` | flag in front of the title |
-| `Detail:` | `Beitrag` / `Seite` / `keine` | overrides the category default for detail pages |
+| `Detail:` | `Beitrag` / `Seite` / `keine` | page + post / page only / neither (default: page, post if enabled for the category) |
 | `Status:` | `abgesagt` / `verschoben` / `vorläufig` | note in the list; cancelled events are struck through |
 
 Keys are case- and whitespace-insensitive. Unknown keys are ignored and shown as warnings in the admin list. An event cancelled in Google (status "Cancelled") also counts as cancelled. Recurring events (RRULE) and exceptions are expanded. Moving an event to another calendar only changes its category.
@@ -60,12 +60,16 @@ The button accent colour can be changed in the theme: `.dtrv-termine, .dtrv-info
 
 ## Detail pages
 
-For every **upcoming** event the sync creates a detail post or page **once**. A deleted one is never recreated automatically. Which type is decided by the `Detail:` line, otherwise by the category default (Wettkampf, Ausbildung, Verband → post; Breitensport → none).
+- **Every upcoming event automatically gets a published page.** The page is the target of the "Infos" button in all event lists, taking precedence over an `Infos:` URL from the calendar. Optionally, all event pages live under a parent page (setting "Übergeordnete Seite").
+- **A post is optional** and only exists so the event appears on the home page. It is always created as a **draft**:
+  - automatically, if enabled for the category,
+  - via `Detail: Beitrag` in the event,
+  - or manually via the row action "Beitrag anlegen".
 
-- **Pages are published immediately.** The "Infos" button in all event lists then links to that page, taking precedence over an `Infos:` URL from the calendar.
-- **Posts stay drafts**, because they also appear on the home page. Once a post is published, "Infos" links to it as well.
+  The post's infobox has an "Alle Infos" button linking to the page.
+- The `Detail:` line controls this per event: `keine` gives neither page nor post, `Seite` only the page, `Beitrag` both.
 
-The content is the event description plus a **Termin-Infobox** block. The category's default image becomes the featured image, and the configured post category is assigned to posts. Both can also be created manually via the row actions "Beitrag anlegen" / "Seite anlegen" in the event list. If the event is removed from Google, the infobox says so.
+Each type is created automatically only **once** per event. A deleted page or post is never recreated automatically, but can be recreated via the row actions. The content is the event description plus a **Termin-Infobox** block. The category's default image becomes the featured image, and posts get the configured post category. If the event is removed from Google, the infobox says so.
 
 ## Event suggestions
 

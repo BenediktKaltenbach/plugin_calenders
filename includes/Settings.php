@@ -12,14 +12,6 @@ final class Settings {
 	public const OPTION_SCHLUESSEL = 'dtrv_termine_cron_schluessel';
 	private const SEITE            = 'dtrv-termine';
 
-	/** Standard-Detailseite je Kategorie, solange nichts gespeichert ist (laut Plan). */
-	private const DETAIL_STANDARD = array(
-		'wettkampf'    => 'beitrag',
-		'breitensport' => 'keine',
-		'ausbildung'   => 'beitrag',
-		'verband'      => 'beitrag',
-	);
-
 	private static string $hook = '';
 
 	public static function einstellungen(): array {
@@ -28,7 +20,8 @@ final class Settings {
 			'ical'              => (array) ( $werte['ical'] ?? array() ),
 			'klasse_link'       => ! empty( $werte['klasse_link'] ) ? $werte['klasse_link'] : home_url( '/klassifikation-von-tretrollerveranstaltungen/' ),
 			'vorschlag_email'   => ! empty( $werte['vorschlag_email'] ) ? $werte['vorschlag_email'] : (string) get_option( 'admin_email' ),
-			'detail'            => array_merge( self::DETAIL_STANDARD, (array) ( $werte['detail'] ?? array() ) ),
+			'beitrag'           => (array) ( $werte['beitrag'] ?? array() ),
+			'seite_eltern'      => (int) ( $werte['seite_eltern'] ?? 0 ),
 			'beitragskategorie' => (array) ( $werte['beitragskategorie'] ?? array() ),
 			'standardbild'      => (array) ( $werte['standardbild'] ?? array() ),
 		);
@@ -125,8 +118,7 @@ final class Settings {
 		}
 		$sauber['vorschlag_email'] = implode( ', ', $adressen );
 		foreach ( array_keys( Plugin::kategorien() ) as $slug ) {
-			$art                                = sanitize_key( $eingabe['detail'][ $slug ] ?? '' );
-			$sauber['detail'][ $slug ]            = isset( Detailseiten::ARTEN[ $art ] ) ? $art : 'keine';
+			$sauber['beitrag'][ $slug ]           = ! empty( $eingabe['beitrag'][ $slug ] );
 			$sauber['beitragskategorie'][ $slug ] = absint( $eingabe['beitragskategorie'][ $slug ] ?? 0 );
 			$sauber['standardbild'][ $slug ]      = absint( $eingabe['standardbild'][ $slug ] ?? 0 );
 		}
@@ -187,19 +179,34 @@ final class Settings {
 					</tr>
 				</table>
 				<h2>Detailseiten</h2>
-				<p>Zu jedem kommenden Termin legt der Abgleich einmalig eine Detailseite an, mit Beschreibung und Block „Termin-Infobox“. <strong>Seiten</strong> werden sofort veröffentlicht und sind dann das Ziel von „Infos“ in allen Terminlisten. <strong>Beiträge</strong> bleiben Entwurf, weil sie auch auf der Startseite erscheinen. Die Zeile <code>Detail: Beitrag | Seite | keine</code> im Termin hat Vorrang vor dem Standard hier.</p>
+				<p>Jeder kommende Termin bekommt beim Abgleich automatisch eine <strong>veröffentlichte Seite</strong> mit Beschreibung und Block „Termin-Infobox“. Sie ist das Ziel von „Infos“ in allen Terminlisten.</p>
+				<p>Ein <strong>Beitrag</strong> ist optional und sorgt nur dafür, dass der Termin auf der Startseite erscheint. Er wird immer als Entwurf angelegt: automatisch, wenn unten angehakt, per <code>Detail: Beitrag</code> im Termin oder per „Beitrag anlegen“ in der Terminliste. Mit <code>Detail: keine</code> bekommt ein Termin weder Seite noch Beitrag, mit <code>Detail: Seite</code> nur die Seite.</p>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="dtrv-seite-eltern">Übergeordnete Seite</label></th>
+						<td>
+						<?php
+						wp_dropdown_pages(
+							array(
+								'name'              => self::OPTION . '[seite_eltern]',
+								'id'                => 'dtrv-seite-eltern',
+								'selected'          => (int) $e['seite_eltern'],
+								'show_option_none'  => '– keine (oberste Ebene) –',
+								'option_none_value' => 0,
+							)
+						);
+						?>
+						<p class="description">Neue Termin-Seiten werden darunter angelegt, z. B. /termine/deutsche-meisterschaft-2027/.</p></td>
+					</tr>
+				</table>
 				<table class="widefat striped" style="max-width:60rem">
-					<thead><tr><th>Kategorie</th><th>Standard</th><th>Beitragskategorie</th><th>Standardbild (Beitragsbild)</th></tr></thead>
+					<thead><tr><th>Kategorie</th><th>Beitrag automatisch (Entwurf)</th><th>Beitragskategorie</th><th>Standardbild (Beitragsbild)</th></tr></thead>
 					<tbody>
 					<?php foreach ( Plugin::kategorien() as $slug => $label ) : ?>
 						<?php $bild = (int) ( $e['standardbild'][ $slug ] ?? 0 ); ?>
 						<tr>
 							<td><?php echo esc_html( $label ); ?></td>
-							<td><select name="<?php echo esc_attr( self::OPTION ); ?>[detail][<?php echo esc_attr( $slug ); ?>]">
-								<?php foreach ( Detailseiten::ARTEN as $art => $art_label ) : ?>
-									<option value="<?php echo esc_attr( $art ); ?>" <?php selected( $e['detail'][ $slug ] ?? 'keine', $art ); ?>><?php echo esc_html( $art_label ); ?></option>
-								<?php endforeach; ?>
-							</select></td>
+							<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[beitrag][<?php echo esc_attr( $slug ); ?>]" value="1" <?php checked( ! empty( $e['beitrag'][ $slug ] ) ); ?>> ja</label></td>
 							<td>
 							<?php
 							wp_dropdown_categories(

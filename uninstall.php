@@ -6,7 +6,7 @@
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
-foreach ( array( 'dtrv_termine_einstellungen', 'dtrv_termine_cron_schluessel', 'dtrv_termine_status', 'dtrv_termine_letzter_abgleich', 'dtrv_termine_leer', 'dtrv_termine_spam' ) as $option ) {
+foreach ( array( 'dtrv_termine_einstellungen', 'dtrv_termine_cron_schluessel', 'dtrv_termine_status', 'dtrv_termine_letzter_abgleich', 'dtrv_termine_leer', 'dtrv_termine_spam', 'dtrv_termine_schema' ) as $option ) {
 	delete_option( $option );
 }
 

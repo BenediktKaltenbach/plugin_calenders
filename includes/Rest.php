@@ -56,22 +56,23 @@ final class Rest {
 		);
 		$liste = array();
 		foreach ( $ids as $id ) {
-			$d      = PostType::daten( $id );
-			$detail = (int) get_post_meta( $id, '_dtrv_detail_post', true );
+			$d       = PostType::daten( $id );
+			$seite   = Detailseiten::id( $id, 'seite' );
 			$liste[] = array(
-				'id'             => $id,
-				'titel'          => get_the_title( $id ),
-				'datum'          => Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ),
-				'start'          => gmdate( 'c', $d['start'] ),
-				'kategorie'      => Plugin::kategorien()[ $d['kategorie'] ] ?? $d['kategorie'],
-				'ort'            => $d['ort'],
-				'status'         => $d['status'],
-				'entfernt'       => (bool) $d['entfernt'],
-				'anmeldung'      => $d['felder']['anmeldung'] ?? '',
-				'detailseite'    => Detailseiten::status( $id ),
-				'detail_link'    => $detail ? (string) get_permalink( $detail ) : '',
-				'bild'           => Detailseiten::bild_status( $id ),
-				'warnungen'      => $d['warnungen'],
+				'id'        => $id,
+				'titel'     => get_the_title( $id ),
+				'datum'     => Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ),
+				'start'     => gmdate( 'c', $d['start'] ),
+				'kategorie' => Plugin::kategorien()[ $d['kategorie'] ] ?? $d['kategorie'],
+				'ort'       => $d['ort'],
+				'status'    => $d['status'],
+				'entfernt'  => (bool) $d['entfernt'],
+				'anmeldung' => $d['felder']['anmeldung'] ?? '',
+				'seite'     => Detailseiten::status( $id, 'seite' ),
+				'seite_url' => $seite ? (string) get_permalink( $seite ) : '',
+				'beitrag'   => Detailseiten::status( $id, 'beitrag' ),
+				'bild'      => Detailseiten::bild_status( $id ),
+				'warnungen' => $d['warnungen'],
 			);
 		}
 		return rest_ensure_response( $liste );
