@@ -1,0 +1,19 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "dtrv/vorschlag",
+	"title": "DTRV-Terminvorschlag",
+	"category": "widgets",
+	"icon": "calendar",
+	"description": "Formular, über das jeder einen Termin vorschlagen kann (inkl. Bild).",
+	"keywords": [ "termin", "vorschlag", "formular", "einreichen" ],
+	"textdomain": "dtrv-termine",
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"spacing": { "margin": true, "padding": true }
+	},
+	"editorScript": "file:./index.js",
+	"style": "dtrv-termine",
+	"render": "file:./render.php"
+}

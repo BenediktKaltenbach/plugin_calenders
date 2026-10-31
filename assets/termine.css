@@ -140,3 +140,105 @@
 		justify-content: flex-start;
 	}
 }
+
+/* Formular „Termin vorschlagen“ */
+
+.dtrv-vorschlag {
+	--dtrv-akzent: #006666;
+	max-width: 42rem;
+}
+
+.dtrv-vorschlag__feld {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin: 0 0 1rem;
+}
+
+.dtrv-vorschlag__reihe {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+	gap: 0 1rem;
+}
+
+.dtrv-vorschlag input[type="text"],
+.dtrv-vorschlag input[type="email"],
+.dtrv-vorschlag input[type="url"],
+.dtrv-vorschlag input[type="date"],
+.dtrv-vorschlag input[type="time"],
+.dtrv-vorschlag select,
+.dtrv-vorschlag textarea {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 0.6rem 0.75rem;
+	border: 1px solid #8c8f94;
+	border-radius: 5px;
+	background: #fff;
+	color: inherit;
+	font: inherit;
+}
+
+.dtrv-vorschlag input:focus,
+.dtrv-vorschlag select:focus,
+.dtrv-vorschlag textarea:focus {
+	outline: 2px solid var(--dtrv-akzent);
+	outline-offset: 1px;
+}
+
+.dtrv-vorschlag__check {
+	flex-direction: row;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.dtrv-vorschlag__check input {
+	margin-top: 0.45em;
+}
+
+.dtrv-vorschlag__check label {
+	flex: 1;
+}
+
+.dtrv-vorschlag__hilfe {
+	font-size: 0.85em;
+	opacity: 0.75;
+}
+
+.dtrv-vorschlag__fehler {
+	color: #b32d2e;
+	font-size: 0.9em;
+}
+
+.has-fehler input,
+.has-fehler select,
+.has-fehler textarea {
+	border-color: #b32d2e;
+}
+
+.dtrv-vorschlag__meldung {
+	margin: 0 0 1rem;
+	padding: 0.6rem 1rem;
+	border-left: 4px solid #b32d2e;
+	background: #fcf0f1;
+}
+
+.dtrv-vorschlag--danke {
+	padding: 0.75rem 1rem;
+	border-left: 4px solid var(--dtrv-akzent);
+	background: #e6f2f2;
+}
+
+.dtrv-vorschlag button.dtrv-termin__knopf {
+	border: 0;
+	cursor: pointer;
+	font-family: inherit;
+}
+
+.dtrv-vorschlag__honig {
+	position: absolute !important;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}

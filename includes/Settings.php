@@ -15,9 +15,15 @@ final class Settings {
 	public static function einstellungen(): array {
 		$werte = (array) get_option( self::OPTION, array() );
 		return array(
-			'ical'        => (array) ( $werte['ical'] ?? array() ),
-			'klasse_link' => ! empty( $werte['klasse_link'] ) ? $werte['klasse_link'] : home_url( '/klassifikation-von-tretrollerveranstaltungen/' ),
+			'ical'            => (array) ( $werte['ical'] ?? array() ),
+			'klasse_link'     => ! empty( $werte['klasse_link'] ) ? $werte['klasse_link'] : home_url( '/klassifikation-von-tretrollerveranstaltungen/' ),
+			'vorschlag_email' => ! empty( $werte['vorschlag_email'] ) ? $werte['vorschlag_email'] : 'vorstand@dtrv.net',
 		);
+	}
+
+	/** Empfänger neuer Terminvorschläge (mehrere durch Komma getrennt). */
+	public static function vorschlag_email(): string {
+		return self::einstellungen()['vorschlag_email'];
 	}
 
 	public static function ical_url( string $kategorie ): string {
@@ -57,6 +63,12 @@ final class Settings {
 			'ical'        => array(),
 			'klasse_link' => esc_url_raw( trim( $eingabe['klasse_link'] ?? '' ) ),
 		);
+
+		$adressen = array_filter( array_map( 'sanitize_email', explode( ',', (string) ( $eingabe['vorschlag_email'] ?? '' ) ) ) );
+		if ( count( $adressen ) !== count( array_filter( array_map( 'trim', explode( ',', (string) ( $eingabe['vorschlag_email'] ?? '' ) ) ) ) ) ) {
+			add_settings_error( self::OPTION, 'vorschlag-email', 'Mindestens eine E-Mail-Adresse für Vorschläge war ungültig und wurde entfernt.' );
+		}
+		$sauber['vorschlag_email'] = implode( ', ', $adressen );
 		foreach ( array_keys( Plugin::kategorien() ) as $slug ) {
 			$url = trim( (string) ( $eingabe['ical'][ $slug ] ?? '' ) );
 			$url = preg_replace( '#^webcals?://#i', 'https://', $url );
@@ -111,6 +123,16 @@ final class Settings {
 							name="<?php echo esc_attr( self::OPTION ); ?>[klasse_link]"
 							value="<?php echo esc_attr( $e['klasse_link'] ); ?>">
 							<p class="description">Erklärseite, auf die die Klasse (z. B. „F | 0-5“) verlinkt.</p></td>
+					</tr>
+				</table>
+				<h2>Terminvorschläge</h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="dtrv-vorschlag-email">E-Mail für neue Vorschläge</label></th>
+						<td><input type="text" class="regular-text" id="dtrv-vorschlag-email"
+							name="<?php echo esc_attr( self::OPTION ); ?>[vorschlag_email]"
+							value="<?php echo esc_attr( $e['vorschlag_email'] ); ?>">
+							<p class="description">Jeder neue Vorschlag aus dem Block „DTRV-Terminvorschlag“ geht mit Freigabe-Link an diese Adresse. Mehrere Adressen durch Komma trennen.</p></td>
 					</tr>
 				</table>
 				<?php submit_button( 'Speichern' ); ?>

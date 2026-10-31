@@ -76,5 +76,25 @@ pruefe( 'Eistal abgesagt (STATUS:CANCELLED)', $e['status'], 'abgesagt' );
 pruefe( 'Eistal ohne DTEND', Format::zeitraum( $e['start'], $e['ende'], true ), '3.10.2027' );
 pruefe( 'Eistal ohne Trenner', array( $e['text'], $e['felder'] ), array( 'Text ohne Trenner', array( 'detail' => 'beitrag' ) ) );
 
+// Vorausgefüllter Google-Kalender-Link für Vorschläge.
+require __DIR__ . '/../includes/Vorschlaege.php';
+$v = array(
+	'von'          => '2027-04-02',
+	'bis'          => '2027-04-05',
+	'zeit_von'     => '',
+	'zeit_bis'     => '',
+	'ort'          => 'Worms',
+	'infos'        => 'https://dtrv.net/x/',
+	'anmeldung'    => '',
+	'beschreibung' => 'Tour',
+);
+parse_str( (string) parse_url( Vorschlaege::google_url( $v, 'Test & Tour' ), PHP_URL_QUERY ), $q );
+pruefe( 'Google ganztägig', array( $q['text'], $q['dates'], $q['location'] ), array( 'Test & Tour', '20270402/20270406', 'Worms' ) );
+pruefe( 'Google Schlüsselzeilen', $q['details'], "Tour\n\n---\nInfos: https://dtrv.net/x/" );
+$v = array_merge( $v, array( 'bis' => '', 'zeit_von' => '10:00', 'zeit_bis' => '', 'infos' => '' ) );
+parse_str( (string) parse_url( Vorschlaege::google_url( $v, 'T', 'https://dtrv.net/b.jpg' ), PHP_URL_QUERY ), $q );
+pruefe( 'Google mit Uhrzeit', array( $q['dates'], $q['ctz'] ), array( '20270402T100000/20270402T120000', 'Europe/Berlin' ) );
+pruefe( 'Google Bild im Text', $q['details'], "Tour\n\nBild vom Einreicher: https://dtrv.net/b.jpg" );
+
 echo $fehler ? "\n$fehler Fehler\n" : "\nAlles ok\n";
 exit( $fehler ? 1 : 0 );

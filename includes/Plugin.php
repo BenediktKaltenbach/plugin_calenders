@@ -21,12 +21,16 @@ final class Plugin {
 
 	public static function start(): void {
 		add_action( 'init', array( PostType::class, 'registrieren' ) );
+		add_action( 'init', array( Vorschlaege::class, 'registrieren' ) );
 		add_action( 'init', array( self::class, 'block_und_shortcode' ) );
 		add_action( self::CRON_HOOK, array( Sync::class, 'wenn_faellig' ) );
 		add_action( 'rest_api_init', array( Rest::class, 'routen' ) );
+		add_action( 'template_redirect', array( Formular::class, 'verarbeiten' ), 1 );
+		add_action( 'template_redirect', array( Vorschlaege::class, 'link_aufruf' ), 1 );
 
 		if ( is_admin() ) {
 			PostType::admin();
+			Vorschlaege::admin();
 			Settings::admin();
 		}
 	}
@@ -34,7 +38,9 @@ final class Plugin {
 	public static function block_und_shortcode(): void {
 		wp_register_style( 'dtrv-termine', plugins_url( 'assets/termine.css', DATEI ), array(), VERSION );
 		register_block_type( dirname( DATEI ) . '/blocks/termine' );
+		register_block_type( dirname( DATEI ) . '/blocks/vorschlag' );
 		add_shortcode( 'dtrv_termine', array( Renderer::class, 'shortcode' ) );
+		add_shortcode( 'dtrv_termin_vorschlag', array( Formular::class, 'shortcode' ) );
 	}
 
 	public static function aktivieren(): void {

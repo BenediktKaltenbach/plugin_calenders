@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       DTRV-Termine
  * Description:       Liest die Termine aus den Google Kalendern des DTRV, spiegelt sie in WordPress und zeigt sie per Block oder Shortcode an.
- * Version:           0.1.1
+ * Version:           0.2.0
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Author:            Deutscher Tretroller Verband e.V.
@@ -15,7 +15,7 @@ namespace DTRV\Termine;
 
 defined( 'ABSPATH' ) || exit;
 
-const VERSION = '0.1.1';
+const VERSION = '0.2.0';
 const DATEI   = __FILE__;
 const REPO    = 'https://github.com/BenediktKaltenbach/plugin_calenders/';
 
@@ -40,6 +40,8 @@ require_once __DIR__ . '/includes/Sync.php';
 require_once __DIR__ . '/includes/Renderer.php';
 require_once __DIR__ . '/includes/Settings.php';
 require_once __DIR__ . '/includes/Rest.php';
+require_once __DIR__ . '/includes/Vorschlaege.php';
+require_once __DIR__ . '/includes/Formular.php';
 
 Plugin::start();
 

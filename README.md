@@ -58,6 +58,19 @@ Groß-/Kleinschreibung und Leerzeichen sind egal. Unbekannte Schlüssel werden i
 
 Die Akzentfarbe der Knöpfe lässt sich im Theme per CSS ändern: `.dtrv-termine { --dtrv-akzent: #006666; }`
 
+## Terminvorschläge
+
+**Block „DTRV-Terminvorschlag“** (oder Shortcode `[dtrv_termin_vorschlag]`) auf einer Seite einfügen. Jeder kann dann einen Termin vorschlagen: Name, Kategorie, Datum (auch mehrtägig), Uhrzeit, Ort, Links zu Infos und Anmeldung, Beschreibung, ein Bild (JPG/PNG/WebP, max. 8 MB), Name und E-Mail des Einreichers, Datenschutz-Haken.
+
+- **Spam-Schutz ohne reCAPTCHA:** verstecktes Honigtopf-Feld, Mindest-Ausfüllzeit von 5 Sekunden, höchstens 5 Vorschläge pro IP und Stunde.
+- **Mail:** Jeder Vorschlag geht an die Adresse unter Termine › Einstellungen › „E-Mail für neue Vorschläge“ (Standard: vorstand@dtrv.net), mit den Links **Freigeben** und **Ablehnen**. Die Links öffnen erst eine Bestätigungsseite mit einem Knopf, damit Mail-Scanner nichts automatisch auslösen. Eine Anmeldung in WordPress ist dafür nicht nötig.
+- **Freigeben** markiert den Vorschlag nur. Das Plugin schreibt nicht in Google. Der Knopf **„In Google Kalender anlegen“** öffnet Google Kalender mit allen Angaben vorausgefüllt (inkl. Schlüsselzeilen). Dort den passenden Kalender wählen und speichern.
+- **Termine › Vorschläge** ist die Prüfliste. „Eingetragen“ schickt dem Einreicher eine Dankes-Mail und löscht danach seine E-Mail-Adresse. „Ablehnen“ archiviert den Vorschlag und löscht E-Mail-Adresse und Bild.
+- Hochgeladene Bilder landen in der Mediathek, angehängt an den Vorschlag.
+- Für die Datenschutzerklärung: Vorschläge speichern Name und E-Mail des Einreichers nur bis zur Bearbeitung. Die IP-Adresse wird nur gehasht für eine Stunde als Spam-Zähler verwendet.
+
+**Lese-Schnittstelle für das Briefing:** `GET /wp-json/dtrv-termine/v1/vorschlaege?schluessel=…` (gleicher Schlüssel wie beim Cronjob) liefert alle neuen und freigegebenen Vorschläge ohne Kontaktdaten, jeweils mit vorausgefülltem Google-Link.
+
 ## Release-Ablauf
 
 1. Neue Version zuerst auf einer Kopie der Seite testen (lokal oder Staging).

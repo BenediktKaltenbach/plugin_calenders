@@ -12,12 +12,16 @@ foreach ( array( 'dtrv_termine_einstellungen', 'dtrv_termine_cron_schluessel', '
 
 $ids = get_posts(
 	array(
-		'post_type'      => 'dtrv_termin',
+		'post_type'      => array( 'dtrv_termin', 'dtrv_vorschlag' ),
 		'post_status'    => 'any',
 		'posts_per_page' => -1,
 		'fields'         => 'ids',
 	)
 );
 foreach ( $ids as $id ) {
+	$bild = (int) get_post_meta( $id, '_dtrv_bild', true );
+	if ( $bild ) {
+		wp_delete_attachment( $bild, true );
+	}
 	wp_delete_post( $id, true );
 }
