@@ -30,6 +30,34 @@ final class Rest {
 			)
 		);
 
+		// Ortssuche bei OpenStreetMap (Knopf „Ort suchen“ im Formular und im Admin).
+		register_rest_route(
+			'dtrv-termine/v1',
+			'/orte',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( self::class, 'orte' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'q' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		// Ort eines Termins von Hand festlegen oder zurücksetzen (Admin).
+		register_rest_route(
+			'dtrv-termine/v1',
+			'/termine/(?P<id>\d+)/ort',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( self::class, 'ort_setzen' ),
+				'permission_callback' => static fn( \WP_REST_Request $anfrage ) => current_user_can( 'edit_post', (int) $anfrage['id'] ),
+			)
+		);
+
 		// Offene Vorschläge für das wöchentliche Briefing (ohne Kontaktdaten).
 		register_rest_route(
 			'dtrv-termine/v1',
@@ -74,6 +102,8 @@ final class Rest {
 				'bild'      => Detailseiten::bild_status( $id ),
 				'warnungen' => $d['warnungen'],
 				'bild_fehler' => (string) get_post_meta( $id, '_dtrv_bild_fehler', true ),
+				'geo'         => Geo::von_termin( $id ),
+				'geo_fehler'  => (string) get_post_meta( $id, '_dtrv_geo_fehler', true ),
 			);
 		}
 		return rest_ensure_response( $liste );
@@ -106,6 +136,52 @@ final class Rest {
 			$liste[]          = array( 'id' => $id ) + $d;
 		}
 		return rest_ensure_response( $liste );
+	}
+
+	/** Öffentlich, daher je IP begrenzt (30 Suchen pro Stunde), Ergebnisse 30 Tage zwischengespeichert. */
+	public static function orte( \WP_REST_Request $anfrage ) {
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			$key    = 'dtrv_orte_' . md5( (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ) . wp_salt( 'nonce' ) );
+			$anzahl = (int) get_transient( $key );
+			if ( $anzahl >= 30 ) {
+				return new \WP_Error( 'dtrv_limit', 'Zu viele Suchen. Bitte später erneut versuchen.', array( 'status' => 429 ) );
+			}
+			set_transient( $key, $anzahl + 1, HOUR_IN_SECONDS );
+		}
+		$treffer = Geo::suchen( sanitize_text_field( (string) $anfrage['q'] ) );
+		if ( is_wp_error( $treffer ) ) {
+			$treffer->add_data( array( 'status' => 503 ) );
+			return $treffer;
+		}
+		return rest_ensure_response( $treffer );
+	}
+
+	public static function ort_setzen( \WP_REST_Request $anfrage ) {
+		$id = (int) $anfrage['id'];
+		if ( PostType::NAME !== get_post_type( $id ) ) {
+			return new \WP_Error( 'dtrv', 'Termin nicht gefunden.', array( 'status' => 404 ) );
+		}
+		if ( $anfrage['zuruecksetzen'] ) {
+			delete_post_meta( $id, '_dtrv_geo_manuell' );
+			delete_post_meta( $id, '_dtrv_geo' );
+		} else {
+			$lat = (float) $anfrage['lat'];
+			$lng = (float) $anfrage['lng'];
+			if ( abs( $lat ) > 90 || abs( $lng ) > 180 || ( 0.0 === $lat && 0.0 === $lng ) ) {
+				return new \WP_Error( 'dtrv', 'Ungültige Koordinaten.', array( 'status' => 400 ) );
+			}
+			update_post_meta(
+				$id,
+				'_dtrv_geo_manuell',
+				array(
+					'lat'  => round( $lat, 6 ),
+					'lng'  => round( $lng, 6 ),
+					'name' => sanitize_text_field( (string) $anfrage['name'] ),
+				)
+			);
+		}
+		Geo::pruefen( $id );
+		return rest_ensure_response( array( 'geo' => Geo::von_termin( $id ) ) );
 	}
 
 	public static function erlaubt( \WP_REST_Request $anfrage ): bool {

@@ -46,6 +46,7 @@ Status: vorläufig
 | `Detail:` | `Beitrag` / `Seite` / `keine` | page + post / page only / neither (default: page, post if enabled for the category) |
 | `Status:` | `abgesagt` / `verschoben` / `vorläufig` | note in the list; cancelled events are struck through |
 | `Bild:` | image URL | featured image of the event's page/post (see below) |
+| `Koordinaten:` | `50.7151, 7.1393` or a Google Maps / OpenStreetMap link | exact position on the map (see below) |
 
 Keys are case- and whitespace-insensitive. Unknown keys are ignored and shown as warnings in the admin list. An event cancelled in Google (status "Cancelled") also counts as cancelled. Recurring events (RRULE) and exceptions are expanded. Moving an event to another calendar only changes its category.
 
@@ -83,6 +84,19 @@ Attach a photo to the Google Calendar event, or add a line `Bild: https://…`. 
 - It replaces only an empty featured image, the category default or a previous calendar image. **An image chosen by hand is never overwritten.**
 - If the download fails (e.g. the file is not shared publicly, not an image, or over 15 MB), the event list shows the reason in the "Bild" column. The download is retried at most every 6 hours.
 
+## Coordinates (map position)
+
+Every event gets coordinates for the map. They are resolved in this order, first match wins:
+
+1. **Chosen by hand** in the event's admin screen: box "Ort auf der Karte" › "Ort suchen" › pick one of the OpenStreetMap matches. This survives every sync and can be reset to automatic.
+2. **Key line `Koordinaten:`** in the Google event, either numbers (`50.7151, 7.1393`) or a link. **A link is the most reliable way to get the exact spot:** in Google Maps or OpenStreetMap, find the start point, click "Share" and paste the link. Short links like `maps.app.goo.gl/…` work too.
+3. The **GEO** field of the calendar entry, if present.
+4. The **location text**, looked up automatically at OpenStreetMap (Nominatim). This only happens for upcoming events and at most 15 lookups per sync. Results are cached for 30 days, with at most one request per second, in line with the Nominatim usage policy.
+
+The event list shows the coordinates in the "Karte" column with a link to check them on OpenStreetMap, plus a warning if a place was not found or a `Koordinaten:` line could not be read.
+
+The **suggestion form** has a "Ort suchen" button next to the location field. It shows up to five OpenStreetMap matches to choose from; there is no search-as-you-type, which Nominatim does not allow. There is also an optional field for a Google Maps/OpenStreetMap link. The coordinates are included in the notification mail and are put into the pre-filled Google event as a `Koordinaten:` line.
+
 ## Event suggestions
 
 Anyone can suggest an event via the **DTRV-Terminvorschlag** block: title, category, date range, optional time, location, class (type F/A for Breitensport, W automatically for Wettkampf; Bergfaktor for both; neither for Ausbildung/Verband), info and registration links, description, an image (JPG/PNG/WebP, max. 8 MB), name and email, privacy consent.
@@ -105,6 +119,7 @@ All endpoints accept the secret key shown on the settings page (`?schluessel=…
 | --- | --- |
 | `GET/POST /wp-json/dtrv-termine/v1/abgleich` | Run a sync (for the cron job). |
 | `GET /wp-json/dtrv-termine/v1/termine` | All events with detail page status, image status and warnings (also used by the infobox block in the editor). |
+| `GET /wp-json/dtrv-termine/v1/orte?q=…` | OpenStreetMap place search used by the form and admin (public, max. 30 searches per IP per hour, cached). |
 | `GET /wp-json/dtrv-termine/v1/vorschlaege` | Open and approved suggestions without contact data, each with a pre-filled Google Calendar link. |
 
 ## Release process

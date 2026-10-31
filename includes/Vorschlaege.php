@@ -63,6 +63,7 @@ final class Vorschlaege {
 			'zeit_bis'     => $m( 'zeit_bis' ),
 			'ort'          => $m( 'ort' ),
 			'klasse'       => $m( 'klasse' ),
+			'geo'          => is_array( get_post_meta( $id, '_dtrv_geo', true ) ) ? get_post_meta( $id, '_dtrv_geo', true ) : null,
 			'infos'        => $m( 'infos' ),
 			'anmeldung'    => $m( 'anmeldung' ),
 			'name'         => $m( 'name' ),
@@ -122,6 +123,9 @@ final class Vorschlaege {
 		}
 		if ( '' !== ( $d['klasse'] ?? '' ) ) {
 			$zeilen[] = 'Klasse: ' . $d['klasse'];
+		}
+		if ( ! empty( $d['geo'] ) ) {
+			$zeilen[] = 'Koordinaten: ' . $d['geo']['lat'] . ', ' . $d['geo']['lng'];
 		}
 		if ( '' !== $d['anmeldung'] ) {
 			$zeilen[] = 'Anmeldung: ' . $d['anmeldung'];
@@ -197,6 +201,9 @@ final class Vorschlaege {
 		);
 		if ( $d['klasse'] ) {
 			$zeilen[] = 'Klasse:     ' . $d['klasse'] . ' (Art | Höhenmeter pro km)';
+		}
+		if ( $d['geo'] ) {
+			$zeilen[] = 'Karte:      ' . Geo::osm_link( $d['geo']['lat'], $d['geo']['lng'] );
 		}
 		if ( $d['infos'] ) {
 			$zeilen[] = 'Infos:      ' . $d['infos'];
@@ -322,6 +329,11 @@ final class Vorschlaege {
 		);
 		if ( $d['klasse'] ) {
 			$zeilen['Klasse'] = esc_html( $d['klasse'] );
+		}
+		if ( $d['geo'] ) {
+			$zeilen['Karte'] = '<a href="' . esc_url( Geo::osm_link( $d['geo']['lat'], $d['geo']['lng'] ) ) . '" target="_blank" rel="noopener">' . esc_html( $d['geo']['lat'] . ', ' . $d['geo']['lng'] ) . '</a>';
+		} else {
+			$zeilen['Karte'] = 'keine Koordinaten – beim Eintragen wird der Ort automatisch gesucht';
 		}
 		foreach ( array( 'infos' => 'Infos', 'anmeldung' => 'Anmeldung' ) as $feld => $label ) {
 			if ( $d[ $feld ] ) {

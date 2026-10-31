@@ -132,6 +132,9 @@ final class Formular {
 			'zeit_von'     => $text( 'zeit_von' ),
 			'zeit_bis'     => $text( 'zeit_bis' ),
 			'ort'          => $text( 'ort' ),
+			'karte'        => $text( 'karte' ),
+			'lat'          => $text( 'lat' ),
+			'lng'          => $text( 'lng' ),
 			'art'          => strtoupper( $text( 'art' ) ),
 			'bergfaktor'   => $text( 'bergfaktor' ),
 			'infos'        => esc_url_raw( $text( 'infos' ), array( 'http', 'https' ) ),
@@ -173,6 +176,9 @@ final class Formular {
 		if ( '' === $w['ort'] ) {
 			$f['ort'] = 'Bitte einen Ort angeben.';
 		}
+		if ( '' !== $w['karte'] && null === Geo::lesen_mit_kurzlink( $w['karte'] ) ) {
+			$f['karte'] = 'Link oder Koordinaten nicht lesbar. Bitte einen Link aus Google Maps oder OpenStreetMap einfügen.';
+		}
 		if ( 'breitensport' === $w['kategorie'] && ! isset( self::ARTEN[ $w['art'] ] ) ) {
 			$f['art'] = 'Bitte wählen: Freizeit oder Ambitioniert.';
 		}
@@ -209,6 +215,23 @@ final class Formular {
 		return $f;
 	}
 
+	/**
+	 * Koordinaten des Vorschlags: Link/Koordinaten aus dem Feld „Genauer Treffpunkt“
+	 * vor dem über „Ort suchen“ gewählten Treffer.
+	 *
+	 * @return array{lat: float, lng: float}|string Leerer String, wenn nichts angegeben.
+	 */
+	private static function geo( array $w ) {
+		if ( '' !== $w['karte'] ) {
+			$geo = Geo::lesen_mit_kurzlink( $w['karte'] );
+			if ( $geo ) {
+				return $geo;
+			}
+		}
+		$geo = Geo::lesen( $w['lat'] . ',' . $w['lng'] );
+		return $geo ? $geo : '';
+	}
+
 	/** Klasse wie im Kalender, z. B. „F | 0-5“; Wettkampf automatisch „W“, sonst leer. */
 	private static function klasse( array $w ): string {
 		$berg = '' !== $w['bergfaktor'] ? $w['bergfaktor'] : '?';
@@ -242,6 +265,7 @@ final class Formular {
 						'_dtrv_zeit_von'  => $w['zeit_von'],
 						'_dtrv_zeit_bis'  => $w['zeit_bis'],
 						'_dtrv_ort'       => $w['ort'],
+						'_dtrv_geo'       => self::geo( $w ),
 						'_dtrv_klasse'    => self::klasse( $w ),
 						'_dtrv_infos'     => $w['infos'],
 						'_dtrv_anmeldung' => $w['anmeldung'],
@@ -313,7 +337,7 @@ final class Formular {
 			return '<div id="dtrv-vorschlag" class="dtrv-vorschlag dtrv-vorschlag--danke" role="status"><p><strong>Vielen Dank!</strong> Dein Vorschlag ist bei uns eingegangen. Wir prüfen ihn und tragen ihn dann in den Kalender ein. Sobald er online ist, bekommst du eine kurze E-Mail.</p></div>';
 		}
 
-		$w = self::$werte + array_fill_keys( array( 'titel', 'kategorie', 'von', 'bis', 'zeit_von', 'zeit_bis', 'ort', 'art', 'bergfaktor', 'infos', 'anmeldung', 'beschreibung', 'name', 'email' ), '' ) + array( 'datenschutz' => false );
+		$w = self::$werte + array_fill_keys( array( 'titel', 'kategorie', 'von', 'bis', 'zeit_von', 'zeit_bis', 'ort', 'karte', 'lat', 'lng', 'art', 'bergfaktor', 'infos', 'anmeldung', 'beschreibung', 'name', 'email' ), '' ) + array( 'datenschutz' => false );
 		$f = self::$fehler;
 		if ( self::$zu_gross ) {
 			$f['_'] = 'Die Daten waren zu groß (meist ein sehr großes Foto). Bitte ein kleineres Bild wählen und erneut absenden – die übrigen Angaben müssen leider neu eingegeben werden.';
@@ -374,7 +398,17 @@ final class Formular {
 			. $feld( 'zeit_von', 'Uhrzeit von', $input( 'zeit_von', 'time' ), false, 'leer lassen, wenn ganztägig' )
 			. $feld( 'zeit_bis', 'Uhrzeit bis', $input( 'zeit_bis', 'time' ) )
 			. '</div>';
-		$html .= $feld( 'ort', 'Ort', $input( 'ort', 'text', true, ' maxlength="150"' ), true, 'z. B. „Worms“ oder „Budel (NL)“' );
+		$html .= $feld(
+			'ort',
+			'Ort',
+			$input( 'ort', 'text', true, ' maxlength="150"' )
+				. ' <button type="button" class="dtrv-vorschlag__suchen" hidden>Ort suchen</button>',
+			true,
+			'z. B. „Worms“ oder „Budel (NL)“. Mit „Ort suchen“ den passenden Treffer wählen, damit der Termin richtig auf der Karte landet.'
+		);
+		$html .= '<div class="dtrv-vorschlag__treffer" aria-live="polite"></div>';
+		$html .= '<input type="hidden" name="lat" value="' . esc_attr( $w['lat'] ) . '"><input type="hidden" name="lng" value="' . esc_attr( $w['lng'] ) . '">';
+		$html .= $feld( 'karte', 'Genauer Treffpunkt (optional)', $input( 'karte', 'text', false, ' placeholder="Link aus Google Maps oder OpenStreetMap"' ), false, 'Am genauesten: In Google Maps oder OpenStreetMap den Startpunkt suchen, „Teilen“ wählen und den Link hier einfügen.' );
 
 		// Klasse: Art nur bei Breitensport (Wettkampf ist automatisch „W“), Bergfaktor bei Wettkampf und Breitensport.
 		$auswahl = static function ( string $name, array $optionen, string $leer ) use ( $w ): string {
@@ -417,6 +451,16 @@ final class Formular {
 		$html .= '<script>(function(){var f=document.getElementById("dtrv-vorschlag");if(!f){return;}var k=f.querySelector("[name=kategorie]");'
 			. 'function z(){f.querySelectorAll("[data-kategorien]").forEach(function(e){e.hidden=e.getAttribute("data-kategorien").split(" ").indexOf(k.value)<0;});}'
 			. 'k.addEventListener("change",z);z();'
+			// Ort suchen: Treffer von OpenStreetMap zur Auswahl (keine Suche beim Tippen, Nominatim-Regeln).
+			. 'var s=f.querySelector(".dtrv-vorschlag__suchen"),t=f.querySelector(".dtrv-vorschlag__treffer"),o=f.querySelector("[name=ort]"),la=f.querySelector("[name=lat]"),ln=f.querySelector("[name=lng]");'
+			. 'if(s&&window.fetch){s.hidden=false;o.addEventListener("input",function(){la.value="";ln.value="";});'
+			. 's.addEventListener("click",function(){if(o.value.trim().length<3){return;}t.textContent="Suche …";'
+			. 'fetch(' . wp_json_encode( rest_url( 'dtrv-termine/v1/orte' ) ) . '+"?q="+encodeURIComponent(o.value)).then(function(r){return r.json();}).then(function(l){t.textContent="";'
+			. 'if(!Array.isArray(l)||!l.length){t.textContent=l&&l.message?l.message:"Nichts gefunden – bitte genauer angeben, z. B. mit Land.";return;}'
+			. 'l.forEach(function(x){var lb=document.createElement("label"),r=document.createElement("input");r.type="radio";r.name="dtrv_treffer";'
+			. 'r.addEventListener("change",function(){la.value=x.lat;ln.value=x.lng;});lb.appendChild(r);lb.appendChild(document.createTextNode(" "+x.name));t.appendChild(lb);});'
+			. 'var q=document.createElement("small");q.textContent="Daten © OpenStreetMap-Mitwirkende";t.appendChild(q);'
+			. '}).catch(function(){t.textContent="Ortssuche gerade nicht erreichbar.";});});}'
 			// Zu große Bilder schon im Browser abfangen, bevor alles hochgeladen wird.
 			. 'var b=f.querySelector("[name=bild]");if(b){b.addEventListener("change",function(){var m=parseInt(b.getAttribute("data-max-mb"),10);'
 			. 'if(b.files&&b.files[0]&&b.files[0].size>m*1048576){alert("Das Bild ist größer als "+m+" MB. Bitte ein kleineres wählen.");b.value="";}});}'

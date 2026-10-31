@@ -142,6 +142,7 @@ final class Sync {
 							'_dtrv_felder'     => $t['felder'],
 							'_dtrv_warnungen'  => $t['warnungen'],
 							'_dtrv_anhang'     => $t['anhang'],
+							'_dtrv_geo_ics'    => $t['geo'],
 							'_dtrv_hash'       => $hash,
 						),
 					)
@@ -190,6 +191,7 @@ final class Sync {
 		foreach ( array_keys( $gesehen ) as $schluessel ) {
 			$id = (int) ( self::$index[ $schluessel ]['id'] ?? 0 );
 			Bilder::pruefen( $id );
+			Geo::pruefen( $id );
 			Detailseiten::pruefen( $id );
 		}
 

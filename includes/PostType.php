@@ -72,6 +72,7 @@ final class PostType {
 			'seite'     => 'Seite',
 			'beitrag'   => 'Beitrag',
 			'bild'      => 'Bild',
+			'karte'     => 'Karte',
 			'hinweise'  => 'Hinweise',
 		);
 	}
@@ -98,6 +99,9 @@ final class PostType {
 			case 'seite':
 			case 'beitrag':
 				echo wp_kses_post( Detailseiten::spalte( $post_id, $spalte ) );
+				break;
+			case 'karte':
+				echo wp_kses_post( self::karte_text( $post_id ) );
 				break;
 			case 'bild':
 				echo wp_kses_post( Detailseiten::spalte_bild( $post_id ) );
@@ -153,8 +157,102 @@ final class PostType {
 		return $aktionen;
 	}
 
+	private const GEO_QUELLE = array(
+		'manuell'  => 'von Hand gewählt',
+		'zeile'    => 'aus „Koordinaten:“',
+		'kalender' => 'aus dem Kalender',
+		'osm'      => 'OpenStreetMap (automatisch)',
+	);
+
+	/** Spalte „Karte“: Koordinaten mit Link zur Kontrolle, Quelle und Warnung. */
+	private static function karte_text( int $post_id ): string {
+		$geo    = Geo::von_termin( $post_id );
+		$fehler = (string) get_post_meta( $post_id, '_dtrv_geo_fehler', true );
+		$html   = '–';
+		if ( $geo ) {
+			$html = sprintf(
+				'<a href="%s" target="_blank" rel="noopener">%s, %s</a><br><small>%s</small>',
+				esc_url( Geo::osm_link( $geo['lat'], $geo['lng'] ) ),
+				esc_html( number_format( $geo['lat'], 4, '.', '' ) ),
+				esc_html( number_format( $geo['lng'], 4, '.', '' ) ),
+				esc_html( self::GEO_QUELLE[ $geo['quelle'] ] ?? $geo['quelle'] )
+			);
+		}
+		if ( '' !== $fehler ) {
+			$html .= '<br><span style="color:#b32d2e">⚠ ' . esc_html( $fehler ) . '</span>';
+		}
+		return $html;
+	}
+
+	/** Kasten „Ort auf der Karte“: Ort suchen, Treffer wählen, zurücksetzen. */
+	public static function karte_box( \WP_Post $post ): void {
+		$geo  = Geo::von_termin( $post->ID );
+		$ort  = (string) get_post_meta( $post->ID, '_dtrv_ort', true );
+		$daten = array(
+			'orte'  => rest_url( 'dtrv-termine/v1/orte' ),
+			'ort'   => rest_url( 'dtrv-termine/v1/termine/' . $post->ID . '/ort' ),
+			'nonce' => wp_create_nonce( 'wp_rest' ),
+		);
+		echo '<p id="dtrv-geo-aktuell">' . wp_kses_post( self::karte_text( $post->ID ) ) . '</p>';
+		echo '<p><input type="search" id="dtrv-geo-suche" class="regular-text" value="' . esc_attr( $ort ) . '"> ';
+		echo '<button type="button" class="button" id="dtrv-geo-suchen">Ort suchen</button> ';
+		if ( $geo && 'manuell' === $geo['quelle'] ) {
+			echo '<button type="button" class="button-link" id="dtrv-geo-reset">Wieder automatisch bestimmen</button>';
+		}
+		echo '</p><div id="dtrv-geo-treffer"></div>';
+		echo '<p class="description">Der gewählte Treffer hat Vorrang vor „Koordinaten:“ im Kalender und bleibt beim Abgleich erhalten. Am genauesten ist sonst eine Zeile <code>Koordinaten:</code> mit einem Link aus Google Maps oder OpenStreetMap. Suchdaten © OpenStreetMap-Mitwirkende.</p>';
+		?>
+		<script>
+		( function () {
+			var d = <?php echo wp_json_encode( $daten ); ?>;
+			var liste = document.getElementById( 'dtrv-geo-treffer' );
+			function senden( daten ) {
+				return fetch( d.ort, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': d.nonce }, body: JSON.stringify( daten ) } )
+					.then( function ( r ) { return r.json(); } )
+					.then( function () { location.reload(); } );
+			}
+			document.getElementById( 'dtrv-geo-suchen' ).addEventListener( 'click', function () {
+				var q = document.getElementById( 'dtrv-geo-suche' ).value;
+				liste.textContent = 'Suche …';
+				fetch( d.orte + '?q=' + encodeURIComponent( q ), { headers: { 'X-WP-Nonce': d.nonce } } )
+					.then( function ( r ) { return r.json(); } )
+					.then( function ( treffer ) {
+						liste.textContent = '';
+						if ( ! Array.isArray( treffer ) || ! treffer.length ) {
+							liste.textContent = treffer && treffer.message ? treffer.message : 'Nichts gefunden. Anders formulieren, z. B. mit Ort und Land.';
+							return;
+						}
+						treffer.forEach( function ( t ) {
+							var p = document.createElement( 'p' );
+							var b = document.createElement( 'button' );
+							b.type = 'button';
+							b.className = 'button button-small';
+							b.textContent = 'Wählen';
+							b.addEventListener( 'click', function () { senden( { lat: t.lat, lng: t.lng, name: t.name } ); } );
+							var a = document.createElement( 'a' );
+							a.href = 'https://www.openstreetmap.org/?mlat=' + t.lat + '&mlon=' + t.lng + '#map=15/' + t.lat + '/' + t.lng;
+							a.target = '_blank';
+							a.rel = 'noopener';
+							a.textContent = t.name;
+							p.appendChild( b );
+							p.appendChild( document.createTextNode( ' ' ) );
+							p.appendChild( a );
+							liste.appendChild( p );
+						} );
+					} );
+			} );
+			var reset = document.getElementById( 'dtrv-geo-reset' );
+			if ( reset ) {
+				reset.addEventListener( 'click', function () { senden( { zuruecksetzen: 1 } ); } );
+			}
+		} )();
+		</script>
+		<?php
+	}
+
 	public static function meta_box(): void {
 		remove_meta_box( 'submitdiv', self::NAME, 'side' );
+		add_meta_box( 'dtrv-termin-karte', 'Ort auf der Karte', array( self::class, 'karte_box' ), self::NAME, 'normal', 'default' );
 		add_meta_box(
 			'dtrv-termin-daten',
 			'Daten aus Google Kalender',

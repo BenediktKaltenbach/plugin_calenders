@@ -64,6 +64,17 @@ final class Feed {
 				}
 			}
 
+			$geo = null;
+			if ( isset( $ev->GEO ) ) {
+				$teile = $ev->GEO->getParts();
+				if ( 2 === count( $teile ) && is_numeric( $teile[0] ) && is_numeric( $teile[1] ) ) {
+					$geo = array(
+						'lat' => (float) $teile[0],
+						'lng' => (float) $teile[1],
+					);
+				}
+			}
+
 			$termine[ $schluessel ] = array(
 				'schluessel' => $schluessel,
 				'titel'      => trim( (string) ( $ev->SUMMARY ?? '' ) ),
@@ -76,6 +87,7 @@ final class Feed {
 				'warnungen'  => $beschreibung['warnungen'],
 				'status'     => $status,
 				'anhang'     => $anhang,
+				'geo'        => $geo,
 			);
 		}
 

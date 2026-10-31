@@ -24,6 +24,11 @@ final class Parser {
 		'status'      => 'status',
 		'bild'        => 'bild',
 		'foto'        => 'bild',
+		'koordinaten' => 'koordinaten',
+		'koordinate'  => 'koordinaten',
+		'geo'         => 'koordinaten',
+		'karte'       => 'koordinaten',
+		'treffpunkt'  => 'koordinaten',
 	);
 
 	private const STATUS = array(
@@ -143,6 +148,10 @@ final class Parser {
 				}
 				$ok = filter_var( $wert, FILTER_VALIDATE_URL ) && preg_match( '#^https?://#i', $wert );
 				return $ok ? $wert : null;
+
+			case 'koordinaten':
+				// Zahlen oder Karten-Link; ausgewertet wird in Geo (Kurzlinks brauchen eine Anfrage).
+				return $wert;
 
 			case 'klasse':
 				$teile = array_map( 'trim', explode( '|', $wert ) );

@@ -73,6 +73,8 @@ pruefe( 'Oster Text', $o['text'], 'Vier Tage Tretroller fahren.' );
 pruefe( 'Oster Warnung', $o['warnungen'], array( 'Unbekannter Schlüssel „Farbe“' ) );
 pruefe( 'Oster Bild-Anhang (PDF übersprungen)', $o['anhang'], 'https://drive.google.com/file/d/1AbC_dEf-123456/view?usp=drive_web' );
 pruefe( 'Rhein ohne Anhang', $nach_titel['Rheinradeln'][0]['anhang'], '' );
+pruefe( 'Rhein GEO', $nach_titel['Rheinradeln'][0]['geo'], array( 'lat' => 50.7151, 'lng' => 7.1393 ) );
+pruefe( 'Oster ohne GEO', $o['geo'], null );
 
 $r = $nach_titel['Rheinradeln'][0];
 pruefe( 'Rhein Datum', Format::zeitraum( $r['start'], $r['ende'], $r['ganztaegig'] ), '23.5.2027, 10:00–14:00 Uhr' );
@@ -98,6 +100,20 @@ pruefe( 'Kein Drive', Bilder::drive_id( 'https://dtrv.net/wp-content/uploads/a.j
 pruefe( 'Drive-Download', Bilder::download_url( 'https://drive.google.com/file/d/1AbC_dEf-123456/view' ), 'https://drive.google.com/uc?export=download&id=1AbC_dEf-123456' );
 pruefe( 'Bild-Zeile', Parser::beschreibung( "x\n---\nBild: https://dtrv.net/a.jpg" )['felder'], array( 'bild' => 'https://dtrv.net/a.jpg' ) );
 
+// Koordinaten aus Text und Karten-Links.
+require __DIR__ . '/../includes/Geo.php';
+$bonn = array( 'lat' => 50.7151, 'lng' => 7.1393 );
+pruefe( 'Geo Zahlen', Geo::lesen( '50.7151, 7.1393' ), $bonn );
+pruefe( 'Geo Zahlen ohne Komma', Geo::lesen( '50.7151 7.1393' ), $bonn );
+pruefe( 'Geo Google @', Geo::lesen( 'https://www.google.com/maps/@50.7151,7.1393,15z' ), $bonn );
+pruefe( 'Geo Google Ort', Geo::lesen( 'https://www.google.com/maps/place/Bonn/@50.70,7.10,12z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d50.7151!4d7.1393' ), $bonn );
+pruefe( 'Geo Google q=', Geo::lesen( 'https://maps.google.com/?q=50.7151,7.1393' ), $bonn );
+pruefe( 'Geo OSM Marker', Geo::lesen( 'https://www.openstreetmap.org/?mlat=50.7151&mlon=7.1393#map=15/50.7/7.1' ), $bonn );
+pruefe( 'Geo OSM Ausschnitt', Geo::lesen( 'https://www.openstreetmap.org/#map=15/50.7151/7.1393' ), $bonn );
+pruefe( 'Geo ungültig', Geo::lesen( 'Marktplatz Bonn' ), null );
+pruefe( 'Geo außerhalb', Geo::lesen( '95.0, 7.0' ), null );
+pruefe( 'Koordinaten-Zeile', Parser::beschreibung( "x\n---\nKoordinaten: 50.7151, 7.1393" )['felder'], array( 'koordinaten' => '50.7151, 7.1393' ) );
+
 // Vorausgefüllter Google-Kalender-Link für Vorschläge.
 require __DIR__ . '/../includes/Vorschlaege.php';
 $v = array(
@@ -119,6 +135,8 @@ pruefe( 'Google mit Uhrzeit', array( $q['dates'], $q['ctz'] ), array( '20270402T
 pruefe( 'Google Bild im Text', $q['details'], "Tour\n\nBild vom Einreicher: https://dtrv.net/b.jpg" );
 parse_str( (string) parse_url( Vorschlaege::google_url( array_merge( $v, array( 'klasse' => 'F | 0-5' ) ), 'T' ), PHP_URL_QUERY ), $q );
 pruefe( 'Google Klasse als Schlüsselzeile', $q['details'], "Tour\n\n---\nKlasse: F | 0-5" );
+parse_str( (string) parse_url( Vorschlaege::google_url( array_merge( $v, array( 'geo' => $bonn ) ), 'T' ), PHP_URL_QUERY ), $q );
+pruefe( 'Google Koordinaten als Schlüsselzeile', $q['details'], "Tour\n\n---\nKoordinaten: 50.7151, 7.1393" );
 
 echo $fehler ? "\n$fehler Fehler\n" : "\nAlles ok\n";
 exit( $fehler ? 1 : 0 );

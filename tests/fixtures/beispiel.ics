@@ -41,6 +41,7 @@ DTEND;TZID=Europe/Berlin:20270523T140000
 UID:rheinradeln@test
 SUMMARY:Rheinradeln
 LOCATION:Bonn
+GEO:50.7151;7.1393
 DESCRIPTION:Gesperrte Straßen am Rhein.\n---\nAnmeldung: www.example.org/
  rheinradeln\nStatus: Vorläufig\nLand: nl
 END:VEVENT
