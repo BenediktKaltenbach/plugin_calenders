@@ -219,7 +219,28 @@ final class Vorschlaege {
 		if ( is_email( $d['email'] ) ) {
 			$kopf[] = 'Reply-To: ' . str_replace( array( "\r", "\n", '<', '>', '"' ), '', $d['name'] ) . ' <' . $d['email'] . '>';
 		}
-		wp_mail( Settings::vorschlag_email(), '[DTRV] Neuer Terminvorschlag: ' . $titel, implode( "\n", $zeilen ), $kopf );
+		$ergebnis = self::senden( Settings::vorschlag_email(), '[DTRV] Neuer Terminvorschlag: ' . $titel, implode( "\n", $zeilen ), $kopf );
+		update_post_meta( $id, '_dtrv_mail', $ergebnis );
+	}
+
+	/**
+	 * wp_mail mit Fehlermeldung. „ok“ heißt nur, dass WordPress die Mail an den
+	 * Server übergeben hat – nicht, dass sie angekommen ist (Spam-Ordner!).
+	 *
+	 * @return string „ok“ oder die Fehlermeldung.
+	 */
+	public static function senden( string $an, string $betreff, string $text, array $kopf = array() ): string {
+		$fehler = '';
+		$merken = static function ( \WP_Error $e ) use ( &$fehler ) {
+			$fehler = $e->get_error_message();
+		};
+		add_action( 'wp_mail_failed', $merken );
+		$ok = wp_mail( $an, $betreff, $text, $kopf );
+		remove_action( 'wp_mail_failed', $merken );
+		if ( $ok ) {
+			return 'ok';
+		}
+		return '' !== $fehler ? $fehler : 'wp_mail() meldet einen Fehler.';
 	}
 
 	private static function dankes_mail( int $id ): void {
@@ -234,7 +255,7 @@ final class Vorschlaege {
 			self::datum_text( $d ),
 			home_url( '/' )
 		);
-		wp_mail( $d['email'], 'Dein Terminvorschlag ist eingetragen', $text );
+		self::senden( $d['email'], 'Dein Terminvorschlag ist eingetragen', $text );
 	}
 
 	/**
@@ -320,6 +341,7 @@ final class Vorschlaege {
 			'termin'     => 'Termin',
 			'kategorie'  => 'Kategorie',
 			'einreicher' => 'Eingereicht von',
+			'mail'       => 'Mail',
 			'vstatus'    => 'Status',
 			'date'       => 'Eingang',
 		);
@@ -337,6 +359,16 @@ final class Vorschlaege {
 				break;
 			case 'einreicher':
 				echo esc_html( $d['name'] );
+				break;
+			case 'mail':
+				$mail = (string) get_post_meta( $id, '_dtrv_mail', true );
+				if ( 'ok' === $mail ) {
+					echo '<span title="WordPress hat die Mail an den Mailserver übergeben">versendet</span>';
+				} elseif ( '' !== $mail ) {
+					echo '<strong style="color:#b32d2e" title="' . esc_attr( $mail ) . '">Fehler</strong><br><small>' . esc_html( $mail ) . '</small>';
+				} else {
+					echo '–';
+				}
 				break;
 			case 'vstatus':
 				echo esc_html( self::STATUS[ $d['status'] ] ?? $d['status'] );
@@ -363,6 +395,7 @@ final class Vorschlaege {
 			}
 		}
 		$aktionen['dtrv_google'] = '<a href="' . esc_url( self::google_link( $post->ID ) ) . '" target="_blank" rel="noopener">In Google Kalender anlegen</a>';
+		$aktionen['dtrv_mail']   = '<a href="' . esc_url( self::status_url( $post->ID, 'mail' ) ) . '">Mail erneut senden</a>';
 		return $aktionen;
 	}
 
@@ -372,7 +405,12 @@ final class Vorschlaege {
 		if ( self::NAME !== get_post_type( $id ) || ! current_user_can( 'edit_post', $id ) ) {
 			wp_die( 'Keine Berechtigung.' );
 		}
-		self::status_setzen( $id, sanitize_key( $_GET['status'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		$status = sanitize_key( $_GET['status'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification
+		if ( 'mail' === $status ) {
+			self::mail_neu( $id );
+		} else {
+			self::status_setzen( $id, $status );
+		}
 		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url( 'edit.php?post_type=' . self::NAME ) );
 		exit;
 	}

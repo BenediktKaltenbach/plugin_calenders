@@ -10,6 +10,9 @@ namespace DTRV\Termine;
 
 final class Formular {
 
+	public const OPTION_SPAM   = 'dtrv_termine_spam';
+	/** Name des Fallenfelds: bewusst ohne Bedeutung, damit Browser-Autofill es nicht ausfüllt. */
+	private const FALLE        = 'dtrv_xf7';
 	private const MINDESTZEIT  = 5;
 	private const HOECHSTALTER = DAY_IN_SECONDS;
 	private const IP_LIMIT     = 5;
@@ -45,8 +48,20 @@ final class Formular {
 		$danke   = add_query_arg( 'vorschlag', 'danke', $zurueck ) . '#dtrv-vorschlag';
 
 		// Bots füllen das versteckte Feld aus oder sind zu schnell: so tun, als hätte es geklappt.
-		$zeit = self::zeitstempel_alter( (string) wp_unslash( $_POST['dtrv_t'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification
-		if ( '' !== (string) ( $_POST['webseite'] ?? '' ) || null === $zeit || $zeit < self::MINDESTZEIT ) { // phpcs:ignore WordPress.Security.NonceVerification
+		$zeit  = self::zeitstempel_alter( (string) wp_unslash( $_POST['dtrv_t'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		$grund = '';
+		if ( '' !== (string) ( $_POST[ self::FALLE ] ?? '' ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+			$grund = 'falle';
+		} elseif ( null === $zeit ) {
+			$grund = 'ungueltig';
+		} elseif ( $zeit < self::MINDESTZEIT ) {
+			$grund = 'zu_schnell';
+		}
+		if ( $grund ) {
+			$spam             = (array) get_option( self::OPTION_SPAM, array() );
+			$spam[ $grund ]   = (int) ( $spam[ $grund ] ?? 0 ) + 1;
+			$spam['zuletzt']  = time();
+			update_option( self::OPTION_SPAM, $spam, false );
 			wp_safe_redirect( $danke );
 			exit;
 		}
@@ -315,7 +330,7 @@ final class Formular {
 		);
 
 		// Honigtopf: für Menschen unsichtbar, Bots füllen es aus.
-		$html .= '<p class="dtrv-vorschlag__honig" aria-hidden="true"><label for="dtrv-f-webseite">Webseite</label><input type="text" id="dtrv-f-webseite" name="webseite" value="" tabindex="-1" autocomplete="off"></p>';
+		$html .= '<p class="dtrv-vorschlag__honig" aria-hidden="true"><label for="dtrv-f-falle">Dieses Feld bitte leer lassen</label><input type="text" id="dtrv-f-falle" name="' . self::FALLE . '" value="" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore></p>';
 		$html .= '<input type="hidden" name="dtrv_t" value="' . esc_attr( self::zeitstempel() ) . '">';
 		$html .= '<input type="hidden" name="dtrv_vorschlag_formular" value="1">';
 		$html .= '<p><button type="submit" class="dtrv-termin__knopf">Termin vorschlagen</button></p>';

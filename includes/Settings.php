@@ -48,6 +48,22 @@ final class Settings {
 		add_action( 'admin_init', array( self::class, 'registrieren' ) );
 		add_action( 'admin_post_dtrv_termine_abgleich', array( self::class, 'abgleich_knopf' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'skripte' ) );
+		add_action( 'admin_post_dtrv_termine_testmail', array( self::class, 'testmail_knopf' ) );
+	}
+
+	public static function testmail_knopf(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Keine Berechtigung.' );
+		}
+		check_admin_referer( 'dtrv_termine_testmail' );
+		$ergebnis = Vorschlaege::senden(
+			self::vorschlag_email(),
+			'[DTRV] Test-Mail des Termine-Plugins',
+			"Diese Test-Mail kommt vom Plugin DTRV-Termine auf " . home_url( '/' ) . ".\n\nWenn du sie liest, funktioniert der Mailversand für Terminvorschläge."
+		);
+		set_transient( 'dtrv_termine_testmail', $ergebnis, MINUTE_IN_SECONDS );
+		wp_safe_redirect( admin_url( 'edit.php?post_type=' . PostType::NAME . '&page=' . self::SEITE ) . '#vorschlaege' );
+		exit;
 	}
 
 	/** Mediathek für die Auswahl der Standardbilder. */
@@ -209,7 +225,7 @@ final class Settings {
 					</tbody>
 				</table>
 
-				<h2>Terminvorschläge</h2>
+				<h2 id="vorschlaege">Terminvorschläge</h2>
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><label for="dtrv-vorschlag-email">E-Mail für neue Vorschläge</label></th>
@@ -221,6 +237,37 @@ final class Settings {
 				</table>
 				<?php submit_button( 'Speichern' ); ?>
 			</form>
+
+			<h2>Mailversand prüfen</h2>
+			<?php
+			$test = get_transient( 'dtrv_termine_testmail' );
+			if ( false !== $test ) {
+				delete_transient( 'dtrv_termine_testmail' );
+				if ( 'ok' === $test ) {
+					echo '<div class="notice notice-success inline"><p>WordPress hat die Test-Mail an <strong>' . esc_html( self::vorschlag_email() ) . '</strong> übergeben. Kommt sie nicht an, bitte den Spam-Ordner prüfen. Hilft das nicht, liegt es am Mailversand der Installation; dann ein SMTP-Plugin (z. B. „WP Mail SMTP“) mit einem echten Postfach einrichten.</p></div>';
+				} else {
+					echo '<div class="notice notice-error inline"><p>Versand fehlgeschlagen: <code>' . esc_html( $test ) . '</code></p></div>';
+				}
+			}
+			$spam = (array) get_option( Formular::OPTION_SPAM, array() );
+			?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="dtrv_termine_testmail">
+				<?php wp_nonce_field( 'dtrv_termine_testmail' ); ?>
+				<p>Schickt eine Test-Mail an die Adresse für neue Vorschläge (<?php echo esc_html( self::vorschlag_email() ); ?>).
+				<?php submit_button( 'Test-Mail senden', 'secondary', 'submit', false ); ?></p>
+			</form>
+			<p>Vom Spam-Schutz verworfen:
+				<?php
+				printf(
+					'%d zu schnell abgeschickt, %d Fallenfeld ausgefüllt, %d ungültig%s',
+					(int) ( $spam['zu_schnell'] ?? 0 ),
+					(int) ( $spam['falle'] ?? 0 ),
+					(int) ( $spam['ungueltig'] ?? 0 ),
+					! empty( $spam['zuletzt'] ) ? esc_html( ' (zuletzt ' . wp_date( 'j.n.Y, H:i', (int) $spam['zuletzt'] ) . ')' ) : ''
+				);
+				?>
+			</p>
 
 			<h2>Abgleich</h2>
 			<table class="widefat striped" style="max-width:60rem">
