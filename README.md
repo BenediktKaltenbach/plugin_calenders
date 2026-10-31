@@ -60,9 +60,12 @@ The button accent colour can be changed in the theme: `.dtrv-termine, .dtrv-info
 
 ## Detail pages
 
-For every **upcoming** event the sync creates a **draft** post or page **once**. It is never published automatically, and a deleted draft is never recreated automatically. Which type is decided by the `Detail:` line, otherwise by the category default (Wettkampf, Ausbildung, Verband → post; Breitensport → none).
+For every **upcoming** event the sync creates a detail post or page **once**. A deleted one is never recreated automatically. Which type is decided by the `Detail:` line, otherwise by the category default (Wettkampf, Ausbildung, Verband → post; Breitensport → none).
 
-The draft contains the event description and a **Termin-Infobox** block. The category's default image becomes the featured image, and the configured post category is assigned. Drafts can also be created manually via the row actions "Beitrag anlegen" / "Seite anlegen" in the event list. Once the detail page is published, the "Infos" button in all lists links to it. If the event is removed from Google, the infobox says so.
+- **Pages are published immediately.** The "Infos" button in all event lists then links to that page, taking precedence over an `Infos:` URL from the calendar.
+- **Posts stay drafts**, because they also appear on the home page. Once a post is published, "Infos" links to it as well.
+
+The content is the event description plus a **Termin-Infobox** block. The category's default image becomes the featured image, and the configured post category is assigned to posts. Both can also be created manually via the row actions "Beitrag anlegen" / "Seite anlegen" in the event list. If the event is removed from Google, the infobox says so.
 
 ## Event suggestions
 

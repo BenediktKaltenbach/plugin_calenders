@@ -1,10 +1,12 @@
 <?php
 /**
- * Detailseiten: Entwurf als Beitrag oder Seite zu einem Termin.
+ * Detailseiten: Beitrag oder Seite zu einem Termin.
  *
  * Ausgelöst durch die Zeile „Detail:“ im Termin oder den Standard der Kategorie
- * (Termine › Einstellungen), oder per Knopf in der Terminliste. Immer nur als
- * Entwurf, nur für kommende Termine und automatisch nur einmal je Termin.
+ * (Termine › Einstellungen), oder per Knopf in der Terminliste. Nur für kommende
+ * Termine und automatisch nur einmal je Termin. Seiten werden sofort veröffentlicht
+ * und sind dann das Ziel von „Infos“ in allen Terminlisten; Beiträge bleiben
+ * Entwurf, weil sie auch auf der Startseite erscheinen.
  */
 
 namespace DTRV\Termine;
@@ -43,13 +45,14 @@ final class Detailseiten {
 		if ( 'keine' === $art ) {
 			return;
 		}
-		// Merken, auch wenn der Entwurf später gelöscht wird: nie erneut automatisch anlegen.
+		// Merken, auch wenn die Detailseite später gelöscht wird: nie erneut automatisch anlegen.
 		update_post_meta( $termin_id, '_dtrv_detail_auto', 1 );
 		self::anlegen( $termin_id, $art );
 	}
 
 	/**
-	 * Legt einen Entwurf an: Beschreibung als Einstieg plus Block „Termin-Infobox“.
+	 * Legt Beitrag (Entwurf) oder Seite (veröffentlicht) an:
+	 * Beschreibung als Einstieg plus Block „Termin-Infobox“.
 	 *
 	 * @return int|\WP_Error ID des neuen Beitrags bzw. der Seite.
 	 */
@@ -71,7 +74,7 @@ final class Detailseiten {
 
 		$daten = array(
 			'post_type'    => 'seite' === $art ? 'page' : 'post',
-			'post_status'  => 'draft',
+			'post_status'  => 'seite' === $art ? 'publish' : 'draft',
 			'post_title'   => $termin->post_title,
 			'post_content' => $inhalt,
 			'post_author'  => $autor ? $autor : self::autor(),

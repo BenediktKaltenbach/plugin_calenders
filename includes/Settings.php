@@ -187,7 +187,7 @@ final class Settings {
 					</tr>
 				</table>
 				<h2>Detailseiten</h2>
-				<p>Zu jedem kommenden Termin legt der Abgleich einmalig einen <strong>Entwurf</strong> an (nie veröffentlicht), mit Beschreibung und Block „Termin-Infobox“. Die Zeile <code>Detail: Beitrag | Seite | keine</code> im Termin hat Vorrang vor dem Standard hier.</p>
+				<p>Zu jedem kommenden Termin legt der Abgleich einmalig eine Detailseite an, mit Beschreibung und Block „Termin-Infobox“. <strong>Seiten</strong> werden sofort veröffentlicht und sind dann das Ziel von „Infos“ in allen Terminlisten. <strong>Beiträge</strong> bleiben Entwurf, weil sie auch auf der Startseite erscheinen. Die Zeile <code>Detail: Beitrag | Seite | keine</code> im Termin hat Vorrang vor dem Standard hier.</p>
 				<table class="widefat striped" style="max-width:60rem">
 					<thead><tr><th>Kategorie</th><th>Standard</th><th>Beitragskategorie</th><th>Standardbild (Beitragsbild)</th></tr></thead>
 					<tbody>
