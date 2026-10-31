@@ -73,6 +73,7 @@ final class Rest {
 				'beitrag'   => Detailseiten::status( $id, 'beitrag' ),
 				'bild'      => Detailseiten::bild_status( $id ),
 				'warnungen' => $d['warnungen'],
+				'bild_fehler' => (string) get_post_meta( $id, '_dtrv_bild_fehler', true ),
 			);
 		}
 		return rest_ensure_response( $liste );

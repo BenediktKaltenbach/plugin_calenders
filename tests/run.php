@@ -67,6 +67,8 @@ pruefe( 'Oster Datum', Format::zeitraum( $o['start'], $o['ende'], $o['ganztaegig
 pruefe( 'Oster Felder', $o['felder'], array( 'infos' => 'https://dtrv.net/osterchallenge/', 'klasse' => 'F | 0-5' ) );
 pruefe( 'Oster Text', $o['text'], 'Vier Tage Tretroller fahren.' );
 pruefe( 'Oster Warnung', $o['warnungen'], array( 'Unbekannter Schlüssel „Farbe“' ) );
+pruefe( 'Oster Bild-Anhang (PDF übersprungen)', $o['anhang'], 'https://drive.google.com/file/d/1AbC_dEf-123456/view?usp=drive_web' );
+pruefe( 'Rhein ohne Anhang', $nach_titel['Rheinradeln'][0]['anhang'], '' );
 
 $r = $nach_titel['Rheinradeln'][0];
 pruefe( 'Rhein Datum', Format::zeitraum( $r['start'], $r['ende'], $r['ganztaegig'] ), '23.5.2027, 10:00–14:00 Uhr' );
@@ -83,6 +85,14 @@ $e = $nach_titel['Autofreies Eistal'][0];
 pruefe( 'Eistal abgesagt (STATUS:CANCELLED)', $e['status'], 'abgesagt' );
 pruefe( 'Eistal ohne DTEND', Format::zeitraum( $e['start'], $e['ende'], true ), '3.10.2027' );
 pruefe( 'Eistal ohne Trenner', array( $e['text'], $e['felder'] ), array( 'Text ohne Trenner', array( 'detail' => 'beitrag' ) ) );
+
+// Bilder: Drive-Links erkennen.
+require __DIR__ . '/../includes/Bilder.php';
+pruefe( 'Drive file/d', Bilder::drive_id( 'https://drive.google.com/file/d/1AbC_dEf-123456/view?usp=drive_web' ), '1AbC_dEf-123456' );
+pruefe( 'Drive open?id', Bilder::drive_id( 'https://drive.google.com/open?id=1AbC_dEf-123456' ), '1AbC_dEf-123456' );
+pruefe( 'Kein Drive', Bilder::drive_id( 'https://dtrv.net/wp-content/uploads/a.jpg?id=1234567890ab' ), '' );
+pruefe( 'Drive-Download', Bilder::download_url( 'https://drive.google.com/file/d/1AbC_dEf-123456/view' ), 'https://drive.google.com/uc?export=download&id=1AbC_dEf-123456' );
+pruefe( 'Bild-Zeile', Parser::beschreibung( "x\n---\nBild: https://dtrv.net/a.jpg" )['felder'], array( 'bild' => 'https://dtrv.net/a.jpg' ) );
 
 // Vorausgefüllter Google-Kalender-Link für Vorschläge.
 require __DIR__ . '/../includes/Vorschlaege.php';

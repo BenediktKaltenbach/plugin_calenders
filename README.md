@@ -45,6 +45,7 @@ Status: vorläufig
 | `Land:` | ISO code, e.g. `CZ` | flag in front of the title |
 | `Detail:` | `Beitrag` / `Seite` / `keine` | page + post / page only / neither (default: page, post if enabled for the category) |
 | `Status:` | `abgesagt` / `verschoben` / `vorläufig` | note in the list; cancelled events are struck through |
+| `Bild:` | image URL | featured image of the event's page/post (see below) |
 
 Keys are case- and whitespace-insensitive. Unknown keys are ignored and shown as warnings in the admin list. An event cancelled in Google (status "Cancelled") also counts as cancelled. Recurring events (RRULE) and exceptions are expanded. Moving an event to another calendar only changes its category.
 
@@ -72,6 +73,15 @@ The button accent colour can be changed in the theme: `.dtrv-termine, .dtrv-info
 - The `Detail:` line controls this per event: `keine` gives neither page nor post, `Seite` only the page, `Beitrag` both.
 
 Each type is created automatically only **once** per event. A deleted page or post is never recreated automatically, but can be recreated via the row actions. The content is the event description plus a **Termin-Infobox** block. The category's default image becomes the featured image, and posts get the configured post category. If the event is removed from Google, the infobox says so.
+
+## Featured images from the calendar
+
+Attach a photo to the Google Calendar event, or add a line `Bild: https://…`. The plugin then uses that image as the featured image of the event's page and post. The plugin uses no Google API, so **Drive files must be shared as "Anyone with the link"**. The easiest way is a Drive folder shared that way: every photo placed in it is public automatically.
+
+- Source: the `Bild:` line wins, otherwise the first image attachment (JPG/PNG/WebP; other attachments such as PDFs are ignored).
+- Each image is downloaded **once** into the media library and reused on later syncs. A URL pointing to the site's own media library is used directly without downloading.
+- It replaces only an empty featured image, the category default or a previous calendar image. **An image chosen by hand is never overwritten.**
+- If the download fails (e.g. the file is not shared publicly, not an image, or over 15 MB), the event list shows the reason in the "Bild" column. The download is retried at most every 6 hours.
 
 ## Event suggestions
 

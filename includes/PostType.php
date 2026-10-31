@@ -167,6 +167,7 @@ final class PostType {
 					'Kategorie'    => Plugin::kategorien()[ $d['kategorie'] ] ?? $d['kategorie'],
 					'Ort'          => $d['ort'],
 					'Beschreibung' => $post->post_content,
+					'Bildquelle'   => Bilder::quelle( $post->ID ),
 				);
 				foreach ( $d['felder'] as $feld => $wert ) {
 					$zeilen[ ucfirst( $feld ) ] = $wert;

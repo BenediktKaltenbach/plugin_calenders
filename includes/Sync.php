@@ -123,6 +123,7 @@ final class Sync {
 							'_dtrv_status'     => $t['status'],
 							'_dtrv_felder'     => $t['felder'],
 							'_dtrv_warnungen'  => $t['warnungen'],
+							'_dtrv_anhang'     => $t['anhang'],
 							'_dtrv_hash'       => $hash,
 						),
 					)
@@ -167,9 +168,11 @@ final class Sync {
 			}
 		}
 
-		// Seite (und ggf. Beitrag) für kommende Termine, einmalig je Termin.
+		// Bild aus dem Kalender laden, dann Seite (und ggf. Beitrag) für kommende Termine anlegen.
 		foreach ( array_keys( $gesehen ) as $schluessel ) {
-			Detailseiten::pruefen( (int) ( self::$index[ $schluessel ]['id'] ?? 0 ) );
+			$id = (int) ( self::$index[ $schluessel ]['id'] ?? 0 );
+			Bilder::pruefen( $id );
+			Detailseiten::pruefen( $id );
 		}
 
 		return array(

@@ -22,6 +22,8 @@ final class Parser {
 		'details'     => 'detail',
 		'detailseite' => 'detail',
 		'status'      => 'status',
+		'bild'        => 'bild',
+		'foto'        => 'bild',
 	);
 
 	private const STATUS = array(
@@ -135,6 +137,7 @@ final class Parser {
 		switch ( $feld ) {
 			case 'anmeldung':
 			case 'infos':
+			case 'bild':
 				if ( preg_match( '/^www\./i', $wert ) ) {
 					$wert = 'https://' . $wert;
 				}

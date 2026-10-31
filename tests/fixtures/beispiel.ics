@@ -27,6 +27,10 @@ DTEND;VALUE=DATE:20270406
 UID:osterchallenge@test
 SUMMARY:Osterchallenge
 LOCATION:überall
+ATTACH;FILENAME=Programm.pdf;FMTTYPE=application/pdf:https://drive.google.
+ com/file/d/1PdfPdfPdfPdf/view?usp=drive_web
+ATTACH;FILENAME=oster.jpg;FMTTYPE=image/jpeg:https://drive.google.com/file
+ /d/1AbC_dEf-123456/view?usp=drive_web
 DESCRIPTION:Vier Tage Tretroller fahren.<br><br>---<br>Infos: <a href="ht
  tps://dtrv.net/osterchallenge/">https://dtrv.net/osterchallenge/</a><br>
  klasse : f|0-5<br>Farbe: blau

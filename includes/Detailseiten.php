@@ -146,9 +146,11 @@ final class Detailseiten {
 		if ( is_wp_error( $neu ) ) {
 			return $neu;
 		}
-		$bild = (int) ( $e['standardbild'][ $d['kategorie'] ] ?? 0 );
-		if ( $bild ) {
-			set_post_thumbnail( $neu, $bild );
+		$kalenderbild = (int) get_post_meta( $termin_id, '_dtrv_bild', true );
+		if ( $kalenderbild ) {
+			Bilder::setzen( $neu, $termin_id, $kalenderbild );
+		} elseif ( ! empty( $e['standardbild'][ $d['kategorie'] ] ) ) {
+			set_post_thumbnail( $neu, (int) $e['standardbild'][ $d['kategorie'] ] );
 		}
 		update_post_meta( $termin_id, '_dtrv_' . $art, $neu );
 		return $neu;
@@ -194,7 +196,7 @@ final class Detailseiten {
 		return '';
 	}
 
-	/** @return string '' (keine Seite) | eigen | standard | fehlt – bezogen auf die Seite. */
+	/** @return string '' (keine Seite) | kalender | eigen | standard | fehlt – bezogen auf die Seite. */
 	public static function bild_status( int $termin_id ): string {
 		if ( ! in_array( self::status( $termin_id, 'seite' ), array( 'entwurf', 'live' ), true ) ) {
 			return '';
@@ -204,6 +206,9 @@ final class Detailseiten {
 		$stand = (int) ( Settings::einstellungen()['standardbild'][ $kat ] ?? 0 );
 		if ( ! $bild ) {
 			return 'fehlt';
+		}
+		if ( $bild === (int) get_post_meta( $termin_id, '_dtrv_bild', true ) ) {
+			return 'kalender';
 		}
 		return $bild === $stand ? 'standard' : 'eigen';
 	}
@@ -227,12 +232,18 @@ final class Detailseiten {
 
 	/** Spalte „Bild“ in der Terminliste. */
 	public static function spalte_bild( int $termin_id ): string {
-		$texte = array(
-			'eigen'    => 'ok',
+		$texte  = array(
+			'kalender' => 'aus Kalender',
+			'eigen'    => 'eigenes',
 			'standard' => 'Standardbild',
 			'fehlt'    => '<strong style="color:#b32d2e">fehlt</strong>',
 		);
-		return $texte[ self::bild_status( $termin_id ) ] ?? '–';
+		$html   = $texte[ self::bild_status( $termin_id ) ] ?? '–';
+		$fehler = (string) get_post_meta( $termin_id, '_dtrv_bild_fehler', true );
+		if ( '' !== $fehler ) {
+			$html .= '<br><span style="color:#b32d2e">⚠ ' . esc_html( $fehler ) . '</span>';
+		}
+		return $html;
 	}
 
 	/** Zeilen-Aktionen: „Seite/Beitrag anlegen“ bzw. „… bearbeiten“. */
