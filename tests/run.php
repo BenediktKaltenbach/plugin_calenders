@@ -19,6 +19,10 @@ function pruefe( string $name, $ist, $soll ): void {
 	}
 	++$fehler;
 	echo "FEHL $name\n     ist:  " . var_export( $ist, true ) . "\n     soll: " . var_export( $soll, true ) . "\n";
+	if ( getenv( 'GITHUB_ACTIONS' ) ) {
+		// Als Annotation sichtbar, auch ohne Zugriff auf das Job-Log.
+		echo '::error title=Test ' . $name . '::' . str_replace( array( "\n", "\r" ), ' ', 'ist ' . var_export( $ist, true ) . ' soll ' . var_export( $soll, true ) ) . "\n";
+	}
 }
 
 $tz = Format::zeitzone();
