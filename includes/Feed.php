@@ -12,12 +12,13 @@ use Sabre\VObject\Reader;
 final class Feed {
 
 	/**
-	 * @return array<int, array<string, mixed>>
+	 * @return array{name: string, termine: array<int, array<string, mixed>>}
 	 * @throws \Throwable Bei ungültigem iCal-Inhalt.
 	 */
-	public static function termine( string $ics, \DateTimeInterface $von, \DateTimeInterface $bis ): array {
+	public static function lesen( string $ics, \DateTimeInterface $von, \DateTimeInterface $bis ): array {
 		$tz       = Format::zeitzone();
 		$kalender = Reader::read( $ics, Reader::OPTION_FORGIVING );
+		$name     = trim( (string) ( $kalender->{'X-WR-CALNAME'} ?? '' ) );
 		$kalender = $kalender->expand( $von, $bis, $tz );
 
 		$termine = array();
@@ -66,6 +67,9 @@ final class Feed {
 		}
 
 		usort( $termine, static fn( $a, $b ) => $a['start'] <=> $b['start'] );
-		return $termine;
+		return array(
+			'name'    => $name,
+			'termine' => $termine,
+		);
 	}
 }

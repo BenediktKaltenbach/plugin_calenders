@@ -11,6 +11,16 @@ final class Sync {
 	private const SPERRE        = 'dtrv_termine_sperre';
 	public const OPTION_STATUS  = 'dtrv_termine_status';
 	public const OPTION_LETZTER = 'dtrv_termine_letzter_abgleich';
+	private const OPTION_LEER   = 'dtrv_termine_leer';
+
+	/**
+	 * Alle gespiegelten Termine: Schlüssel → [id, kategorie].
+	 * Kategorienübergreifend, damit ein in Google verschobener Termin
+	 * (gleiche UID, anderer Kalender) nur die Kategorie wechselt.
+	 *
+	 * @var array<string, array{id: int, kategorie: string}>
+	 */
+	private static array $index = array();
 
 	/** WP-Cron als Rückfall: nur abgleichen, wenn der echte Cronjob länger nicht lief. */
 	public static function wenn_faellig(): void {
@@ -28,7 +38,8 @@ final class Sync {
 		}
 		set_transient( self::SPERRE, 1, 5 * MINUTE_IN_SECONDS );
 
-		$status = array();
+		self::$index = self::index();
+		$status      = array();
 		foreach ( Plugin::kategorien() as $slug => $label ) {
 			$url = Settings::ical_url( $slug );
 			if ( '' === $url ) {
@@ -66,7 +77,7 @@ final class Sync {
 
 		$tz = Format::zeitzone();
 		try {
-			$termine = Feed::termine(
+			$feed = Feed::lesen(
 				wp_remote_retrieve_body( $antwort ),
 				new \DateTimeImmutable( '-1 year', $tz ),
 				new \DateTimeImmutable( '+3 years', $tz )
@@ -74,21 +85,22 @@ final class Sync {
 		} catch ( \Throwable $e ) {
 			return $fehler( 'iCal-Daten nicht lesbar: ' . $e->getMessage() );
 		}
+		$termine = $feed['termine'];
 
-		$vorhanden = self::vorhandene( $slug );
-		$zaehler   = array(
+		$zaehler = array(
 			'neu'       => 0,
 			'geaendert' => 0,
 			'entfernt'  => 0,
 		);
-		$gesehen   = array();
+		$gesehen = array();
 
 		foreach ( $termine as $t ) {
 			$gesehen[ $t['schluessel'] ] = true;
-			$post_id                     = $vorhanden[ $t['schluessel'] ] ?? 0;
+			$eintrag                     = self::$index[ $t['schluessel'] ] ?? null;
+			$post_id                     = $eintrag['id'] ?? 0;
 			$hash                        = md5( wp_json_encode( $t ) );
 
-			if ( $post_id && get_post_meta( $post_id, '_dtrv_hash', true ) === $hash && ! get_post_meta( $post_id, '_dtrv_entfernt', true ) ) {
+			if ( $post_id && $eintrag['kategorie'] === $slug && get_post_meta( $post_id, '_dtrv_hash', true ) === $hash && ! get_post_meta( $post_id, '_dtrv_entfernt', true ) ) {
 				continue;
 			}
 
@@ -120,47 +132,89 @@ final class Sync {
 				continue;
 			}
 			delete_post_meta( $ergebnis, '_dtrv_entfernt' );
+			self::$index[ $t['schluessel'] ] = array(
+				'id'        => $ergebnis,
+				'kategorie' => $slug,
+			);
 			++$zaehler[ $post_id ? 'geaendert' : 'neu' ];
 		}
 
 		// Im Kalender gelöschte Termine nur markieren (Detailseiten verweisen evtl. darauf).
-		// Ein leerer Feed bei vorhandenen Terminen gilt als Störung, dann bleibt der letzte Stand.
+		$weg = array();
+		foreach ( self::$index as $schluessel => $eintrag ) {
+			if ( $eintrag['kategorie'] === $slug && ! isset( $gesehen[ $schluessel ] ) ) {
+				$weg[] = $eintrag['id'];
+			}
+		}
+
+		// Ein leerer Feed kann eine Google-Störung sein: erst beim zweiten leeren Abruf in Folge löschen.
 		$meldung = '';
-		if ( ! $termine && $vorhanden ) {
-			$meldung = 'Feed war leer – letzter Stand bleibt erhalten.';
+		$leer    = (array) get_option( self::OPTION_LEER, array() );
+		if ( ! $termine && $weg && empty( $leer[ $slug ] ) ) {
+			$leer[ $slug ] = 1;
+			$meldung       = sprintf( 'Kalender ist leer. Ist das beim nächsten Abgleich noch so, werden %d Termine als gelöscht markiert.', count( $weg ) );
+			$weg           = array();
 		} else {
-			foreach ( array_diff_key( $vorhanden, $gesehen ) as $post_id ) {
-				if ( ! get_post_meta( $post_id, '_dtrv_entfernt', true ) ) {
-					update_post_meta( $post_id, '_dtrv_entfernt', time() );
-					++$zaehler['entfernt'];
-				}
+			unset( $leer[ $slug ] );
+		}
+		update_option( self::OPTION_LEER, $leer, false );
+
+		foreach ( $weg as $post_id ) {
+			if ( ! get_post_meta( $post_id, '_dtrv_entfernt', true ) ) {
+				update_post_meta( $post_id, '_dtrv_entfernt', time() );
+				++$zaehler['entfernt'];
 			}
 		}
 
 		return array(
 			'ok'      => true,
 			'zeit'    => time(),
+			'name'    => $feed['name'],
 			'anzahl'  => count( $termine ),
 			'meldung' => $meldung,
 		) + $zaehler;
 	}
 
-	/** @return array<string, int> Schlüssel → Post-ID */
-	private static function vorhandene( string $slug ): array {
+	/**
+	 * Baut den Index aller gespiegelten Termine und räumt Dubletten
+	 * (gleicher Schlüssel mehrfach) auf. Behalten wird ein Eintrag mit
+	 * Detailseite, sonst der neueste.
+	 *
+	 * @return array<string, array{id: int, kategorie: string}>
+	 */
+	private static function index(): array {
 		$ids = get_posts(
 			array(
 				'post_type'      => PostType::NAME,
 				'post_status'    => 'any',
 				'posts_per_page' => -1,
 				'fields'         => 'ids',
-				'meta_key'       => '_dtrv_kategorie', // phpcs:ignore WordPress.DB.SlowDBQuery
-				'meta_value'     => $slug, // phpcs:ignore WordPress.DB.SlowDBQuery
+				'orderby'        => 'ID',
+				'order'          => 'DESC',
 			)
 		);
-		$map = array();
+		update_meta_cache( 'post', $ids );
+
+		$index = array();
 		foreach ( $ids as $id ) {
-			$map[ (string) get_post_meta( $id, '_dtrv_schluessel', true ) ] = $id;
+			$schluessel = (string) get_post_meta( $id, '_dtrv_schluessel', true );
+			$eintrag    = array(
+				'id'        => $id,
+				'kategorie' => (string) get_post_meta( $id, '_dtrv_kategorie', true ),
+			);
+			if ( ! isset( $index[ $schluessel ] ) ) {
+				$index[ $schluessel ] = $eintrag;
+				continue;
+			}
+			// Dublette: Eintrag mit Detailseite gewinnt, der andere wird gelöscht.
+			$behalten = $index[ $schluessel ];
+			$weg      = $eintrag;
+			if ( ! get_post_meta( $behalten['id'], '_dtrv_detail_post', true ) && get_post_meta( $id, '_dtrv_detail_post', true ) ) {
+				[ $behalten, $weg ] = array( $eintrag, $behalten );
+			}
+			$index[ $schluessel ] = $behalten;
+			wp_delete_post( $weg['id'], true );
 		}
-		return $map;
+		return $index;
 	}
 }

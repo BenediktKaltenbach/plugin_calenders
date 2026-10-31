@@ -118,12 +118,19 @@ final class Settings {
 
 			<h2>Abgleich</h2>
 			<table class="widefat striped" style="max-width:60rem">
-				<thead><tr><th>Kategorie</th><th>Letzter Abgleich</th><th>Termine</th><th>Änderungen</th><th>Meldung</th></tr></thead>
+				<thead><tr><th>Kategorie</th><th>Google-Kalender</th><th>Letzter Abgleich</th><th>Termine</th><th>Änderungen</th><th>Meldung</th></tr></thead>
 				<tbody>
 				<?php foreach ( Plugin::kategorien() as $slug => $label ) : ?>
-					<?php $s = $status[ $slug ] ?? array(); ?>
+					<?php
+					$s    = $status[ $slug ] ?? array();
+					$name = (string) ( $s['name'] ?? '' );
+					?>
 					<tr>
 						<td><?php echo esc_html( $label ); ?></td>
+						<td><?php echo esc_html( $name ); ?>
+							<?php if ( '' !== $name && false === mb_stripos( $name, $label ) ) : ?>
+								<br><strong style="color:#b32d2e">⚠ Passt nicht zur Kategorie – richtige Adresse eingetragen?</strong>
+							<?php endif; ?></td>
 						<td><?php echo ! empty( $s['zeit'] ) ? esc_html( wp_date( 'j.n.Y, H:i', $s['zeit'] ) ) : '–'; ?>
 							<?php echo isset( $s['ok'] ) ? ( $s['ok'] ? ' ✅' : ' ❌' ) : ''; ?></td>
 						<td><?php echo esc_html( (string) ( $s['anzahl'] ?? '–' ) ); ?></td>

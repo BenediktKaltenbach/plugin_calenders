@@ -41,11 +41,13 @@ $b = Parser::beschreibung( "Infos: kein Link\n---\nInfos: nichts" );
 pruefe( 'Ungültige URL', array( $b['text'], $b['felder'], count( $b['warnungen'] ) ), array( 'Infos: kein Link', array(), 1 ) );
 
 // Feed.
-$termine = Feed::termine(
+$feed    = Feed::lesen(
 	file_get_contents( __DIR__ . '/fixtures/beispiel.ics' ),
 	new \DateTimeImmutable( '2027-01-01', $tz ),
 	new \DateTimeImmutable( '2028-01-01', $tz )
 );
+$termine = $feed['termine'];
+pruefe( 'Kalendername', $feed['name'], 'Breitensport' );
 $nach_titel = array();
 foreach ( $termine as $t ) {
 	$nach_titel[ $t['titel'] ][] = $t;
