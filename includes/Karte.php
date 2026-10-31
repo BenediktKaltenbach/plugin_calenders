@@ -127,10 +127,7 @@ final class Karte {
 		}
 
 		$links = array();
-		$infos = Detailseiten::link( $id );
-		if ( '' === $infos ) {
-			$infos = $d['felder']['infos'] ?? '';
-		}
+		$infos = Detailseiten::infos_ziel( $id, $d['felder'] );
 		if ( '' !== $infos ) {
 			$links[] = '<a href="' . esc_url( $infos ) . '">Infos</a>';
 		}

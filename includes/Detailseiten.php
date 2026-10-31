@@ -132,10 +132,40 @@ final class Detailseiten {
 		}
 		$beitrag = 'beitrag' === $detail
 			|| ( 'seite' !== $detail && ! empty( Settings::einstellungen()['beitrag'][ $daten['kategorie'] ] ) );
+		// Keine doppelte Seite: Zeigt „Infos:“ schon auf eine Seite von dtrv.net, ist das die
+		// Seite des Termins – außer es steht ausdrücklich „Detail: Seite“ im Termin.
+		$seite = 'seite' === $detail || ! self::intern( $daten['felder']['infos'] ?? '' );
 		return array(
-			'seite'   => true,
+			'seite'   => $seite,
 			'beitrag' => $beitrag,
 		);
+	}
+
+	/** Zeigt die Adresse auf diese Website (gleicher Host, mit oder ohne www)? */
+	public static function intern( string $url ): bool {
+		if ( '' === $url ) {
+			return false;
+		}
+		$host = static fn( $u ) => preg_replace( '/^www\./i', '', strtolower( (string) wp_parse_url( $u, PHP_URL_HOST ) ) );
+		return '' !== $host( $url ) && $host( $url ) === $host( home_url() );
+	}
+
+	/**
+	 * Ziel von „Infos“ in Listen und auf der Karte:
+	 * eigene Termin-Seite → bestehende Seite auf dtrv.net aus „Infos:“ → Beitrag → externer Link.
+	 */
+	public static function infos_ziel( int $termin_id, array $felder ): string {
+		if ( 'live' === self::status( $termin_id, 'seite' ) ) {
+			return (string) get_permalink( self::id( $termin_id, 'seite' ) );
+		}
+		$infos = (string) ( $felder['infos'] ?? '' );
+		if ( self::intern( $infos ) ) {
+			return $infos;
+		}
+		if ( 'live' === self::status( $termin_id, 'beitrag' ) ) {
+			return (string) get_permalink( self::id( $termin_id, 'beitrag' ) );
+		}
+		return $infos;
 	}
 
 	/** Beim Abgleich: legt fehlende Seite/Beitrag einmalig an. */
@@ -247,16 +277,6 @@ final class Detailseiten {
 		return 'publish' === $status ? 'live' : 'entwurf';
 	}
 
-	/** Veröffentlichte Detailseite für „Infos“: Seite, sonst Beitrag, sonst ''. */
-	public static function link( int $termin_id ): string {
-		foreach ( array_keys( self::ARTEN ) as $art ) {
-			if ( 'live' === self::status( $termin_id, $art ) ) {
-				return (string) get_permalink( self::id( $termin_id, $art ) );
-			}
-		}
-		return '';
-	}
-
 	/** @return string '' (keine Seite) | kalender | eigen | standard | fehlt – bezogen auf die Seite. */
 	public static function bild_status( int $termin_id ): string {
 		if ( ! in_array( self::status( $termin_id, 'seite' ), array( 'entwurf', 'live' ), true ) ) {
@@ -285,7 +305,11 @@ final class Detailseiten {
 			case 'geloescht':
 				return '<span style="color:#996800">gelöscht</span>';
 		}
-		$plan = self::plan( PostType::daten( $termin_id ) );
+		$daten = PostType::daten( $termin_id );
+		$plan  = self::plan( $daten );
+		if ( 'seite' === $art && ! $plan['seite'] && self::intern( $daten['felder']['infos'] ?? '' ) ) {
+			return '<a href="' . esc_url( $daten['felder']['infos'] ) . '" title="„Infos:“ zeigt auf eine bestehende Seite – keine zusätzliche Seite">eigene Seite</a>';
+		}
 		return $plan[ $art ] && ! get_post_meta( $termin_id, '_dtrv_' . $art . '_auto', true )
 			? '<span title="wird beim nächsten Abgleich angelegt, wenn der Termin in der Zukunft liegt">geplant</span>'
 			: '–';

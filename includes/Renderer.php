@@ -221,9 +221,11 @@ final class Renderer {
 		if ( $seite && 'publish' === get_post_status( $seite ) && get_the_ID() !== $seite ) {
 			$knoepfe .= self::knopf( (string) get_permalink( $seite ), 'Alle Infos', ! empty( $knoepfe ) );
 		}
+		// Link aus „Infos:“ – mit Beschriftung, die sagt, wohin er führt.
 		$hier = untrailingslashit( (string) get_permalink() );
 		if ( ! empty( $felder['infos'] ) && untrailingslashit( $felder['infos'] ) !== $hier ) {
-			$knoepfe .= self::knopf( $felder['infos'], 'Weitere Infos', ! empty( $knoepfe ) );
+			$text     = Detailseiten::intern( $felder['infos'] ) ? 'Ausführliche Infos' : 'Website des Veranstalters';
+			$knoepfe .= self::knopf( $felder['infos'], $text, ! empty( $knoepfe ) );
 		}
 		if ( $knoepfe ) {
 			$html .= '<div class="dtrv-termin__aktionen dtrv-infobox__aktionen">' . $knoepfe . '</div>';
@@ -244,8 +246,7 @@ final class Renderer {
 
 	/** Veröffentlichte Seite (sonst Beitrag) hat Vorrang vor dem Link aus „Infos:“. */
 	private static function infos_url( int $post_id, array $felder ): string {
-		$detail = Detailseiten::link( $post_id );
-		return '' !== $detail ? $detail : ( $felder['infos'] ?? '' );
+		return Detailseiten::infos_ziel( $post_id, $felder );
 	}
 
 	private static function knopf( string $url, string $text, bool $zweitrangig ): string {

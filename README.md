@@ -64,13 +64,14 @@ The button accent colour can be changed in the theme: `.dtrv-termine, .dtrv-info
 
 ## Detail pages
 
-- **Every upcoming event automatically gets a published page.** The page is the target of the "Infos" button in all event lists, taking precedence over an `Infos:` URL from the calendar. Optionally, all event pages live under a parent page (setting "Übergeordnete Seite").
+- **Every upcoming event automatically gets a published page.** The page is the target of the "Infos" button in all event lists, taking precedence over an external `Infos:` URL from the calendar.
+- **Exception, no duplicate pages:** if `Infos:` already points to a page on this website (e.g. `https://dtrv.net/osterchallenge/`), that page *is* the event's page. No extra page is created, and "Infos" links there. `Detail: Seite` forces an extra page anyway. Optionally, all event pages live under a parent page (setting "Übergeordnete Seite").
 - **A post is optional** and only exists so the event appears on the home page. It is always created as a **draft**:
   - automatically, if enabled for the category,
   - via `Detail: Beitrag` in the event,
   - or manually via the row action "Beitrag anlegen".
 
-  The post's infobox has an "Alle Infos" button linking to the page.
+  The post's infobox has an "Alle Infos" button linking to the page. In the infobox, an `Infos:` link is labelled "Website des Veranstalters" (other sites) or "Ausführliche Infos" (a page on this website).
 - The `Detail:` line controls this per event: `keine` gives neither page nor post, `Seite` only the page, `Beitrag` both.
 
 Each type is created automatically only **once** per event. A deleted page or post is never recreated automatically, but can be recreated via the row actions. The content starts with a **Termin-Infobox** block (date, location, class, register button), followed by the event description. Pages created before 0.6.0 get the infobox moved to the top once, unless they were rearranged by hand. The category's default image becomes the featured image, and posts get the configured post category. If the event is removed from Google, the infobox says so.
