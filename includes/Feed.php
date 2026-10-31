@@ -55,10 +55,10 @@ final class Feed {
 			// Erstes Bild unter den Anhängen (bei Google: Drive-Link).
 			$anhang = '';
 			foreach ( $ev->select( 'ATTACH' ) as $a ) {
-				$typ  = strtolower( (string) ( $a['FMTTYPE'] ?? '' ) );
-				$name = strtolower( (string) ( $a['FILENAME'] ?? '' ) );
-				$url  = trim( (string) $a->getValue() );
-				if ( preg_match( '#^https?://#i', $url ) && ( str_starts_with( $typ, 'image/' ) || preg_match( '/\.(jpe?g|png|webp)$/', $name ) ) ) {
+				$typ   = strtolower( (string) ( $a['FMTTYPE'] ?? '' ) );
+				$datei = strtolower( (string) ( $a['FILENAME'] ?? '' ) );
+				$url   = trim( (string) $a->getValue() );
+				if ( preg_match( '#^https?://#i', $url ) && ( str_starts_with( $typ, 'image/' ) || preg_match( '/\.(jpe?g|png|webp)$/', $datei ) ) ) {
 					$anhang = $url;
 					break;
 				}
