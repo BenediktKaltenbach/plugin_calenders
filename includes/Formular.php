@@ -16,7 +16,8 @@ final class Formular {
 	private const MINDESTZEIT  = 5;
 	private const HOECHSTALTER = DAY_IN_SECONDS;
 	private const IP_LIMIT     = 5;
-	private const BILD_MAX_MB  = 8;
+	/** Obergrenze für Bilder; kleiner, wenn der Server weniger erlaubt. */
+	private const BILD_MAX_MB  = 15;
 	private const BILD_TYPEN   = array(
 		'jpg|jpeg|jpe' => 'image/jpeg',
 		'png'          => 'image/png',
@@ -26,6 +27,10 @@ final class Formular {
 	/** Fehler und Eingaben nach einem fehlgeschlagenen Absenden (gleicher Request). */
 	private static array $fehler = array();
 	private static array $werte  = array();
+	/** Zeitstempel des ersten Anzeigens, bleibt beim erneuten Anzeigen nach Fehlern erhalten. */
+	private static string $token = '';
+	/** Upload war größer als post_max_size: PHP liefert dann ein leeres $_POST. */
+	private static bool $zu_gross = false;
 
 	/** Art der Veranstaltung (nur Breitensport; Wettkampf ist immer „W“). */
 	private const ARTEN = array(
@@ -55,7 +60,15 @@ final class Formular {
 
 	/** Verarbeitet das Absenden (template_redirect, vor der Ausgabe der Seite). */
 	public static function verarbeiten(): void {
-		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) || empty( $_POST['dtrv_vorschlag_formular'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification
+		if ( empty( $_POST ) && (int) ( $_SERVER['CONTENT_LENGTH'] ?? 0 ) > 0 && str_contains( (string) ( $_SERVER['CONTENT_TYPE'] ?? '' ), 'multipart/form-data' ) ) {
+			self::$zu_gross = true;
+			return;
+		}
+		if ( empty( $_POST['dtrv_vorschlag_formular'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
 			return;
 		}
 
@@ -85,6 +98,9 @@ final class Formular {
 		self::$fehler = self::pruefen( self::$werte );
 		if ( $zeit > self::HOECHSTALTER ) {
 			self::$fehler['_'] = 'Das Formular war zu lange geöffnet. Bitte noch einmal absenden.';
+		} else {
+			// Nach einem Fehler nicht erneut 5 Sekunden Mindestzeit verlangen.
+			self::$token = (string) wp_unslash( $_POST['dtrv_t'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification
 		}
 		if ( ! self::$fehler && self::ip_zaehler() >= self::IP_LIMIT ) {
 			self::$fehler['_'] = 'Es wurden in kurzer Zeit zu viele Vorschläge gesendet. Bitte später erneut versuchen.';
@@ -184,8 +200,8 @@ final class Formular {
 		$bild = $_FILES['bild'] ?? null; // phpcs:ignore WordPress.Security.NonceVerification
 		if ( $bild && UPLOAD_ERR_NO_FILE !== (int) $bild['error'] ) {
 			$typ = wp_check_filetype( (string) $bild['name'], self::BILD_TYPEN );
-			if ( UPLOAD_ERR_OK !== (int) $bild['error'] || (int) $bild['size'] > self::BILD_MAX_MB * MB_IN_BYTES ) {
-				$f['bild'] = 'Das Bild konnte nicht hochgeladen werden (höchstens ' . self::BILD_MAX_MB . ' MB).';
+			if ( UPLOAD_ERR_OK !== (int) $bild['error'] || (int) $bild['size'] > self::bild_max_mb() * MB_IN_BYTES ) {
+				$f['bild'] = 'Das Bild konnte nicht hochgeladen werden (höchstens ' . self::bild_max_mb() . ' MB).';
 			} elseif ( ! $typ['type'] ) {
 				$f['bild'] = 'Bitte ein Bild als JPG, PNG oder WebP hochladen.';
 			}
@@ -203,6 +219,11 @@ final class Formular {
 				return $w['art'] . ' | ' . $berg;
 		}
 		return '';
+	}
+
+	/** Erlaubte Bildgröße in MB: höchstens BILD_MAX_MB, aber nie mehr als der Server annimmt. */
+	private static function bild_max_mb(): int {
+		return max( 1, min( self::BILD_MAX_MB, (int) floor( wp_max_upload_size() / MB_IN_BYTES ) ) );
 	}
 
 	/** @return int|\WP_Error ID des Vorschlags. */
@@ -294,6 +315,9 @@ final class Formular {
 
 		$w = self::$werte + array_fill_keys( array( 'titel', 'kategorie', 'von', 'bis', 'zeit_von', 'zeit_bis', 'ort', 'art', 'bergfaktor', 'infos', 'anmeldung', 'beschreibung', 'name', 'email' ), '' ) + array( 'datenschutz' => false );
 		$f = self::$fehler;
+		if ( self::$zu_gross ) {
+			$f['_'] = 'Die Daten waren zu groß (meist ein sehr großes Foto). Bitte ein kleineres Bild wählen und erneut absenden – die übrigen Angaben müssen leider neu eingegeben werden.';
+		}
 
 		$feld = static function ( string $name, string $label, string $input, bool $pflicht = false, string $hilfe = '' ) use ( $f ): string {
 			$fehler = isset( $f[ $name ] ) ? '<span class="dtrv-vorschlag__fehler" id="dtrv-f-' . $name . '-fehler">' . esc_html( $f[ $name ] ) . '</span>' : '';
@@ -330,7 +354,10 @@ final class Formular {
 		$heute       = ( new \DateTimeImmutable( 'now', Format::zeitzone() ) )->format( 'Y-m-d' );
 		$datenschutz = get_privacy_policy_url();
 
-		$html  = '<form id="dtrv-vorschlag" class="dtrv-vorschlag" method="post" enctype="multipart/form-data" action="#dtrv-vorschlag">';
+		// Klein starten: nur ein Knopf, das Formular klappt auf (nach Fehlern bleibt es offen).
+		$html  = '<details id="dtrv-vorschlag" class="dtrv-vorschlag-box"' . ( $f ? ' open' : '' ) . '>';
+		$html .= '<summary class="dtrv-termin__knopf">Termin vorschlagen</summary>';
+		$html .= '<form class="dtrv-vorschlag" method="post" enctype="multipart/form-data" action="#dtrv-vorschlag">';
 		if ( isset( $f['_'] ) ) {
 			$html .= '<div class="dtrv-vorschlag__meldung" role="alert">' . esc_html( $f['_'] ) . '</div>';
 		} elseif ( $f ) {
@@ -366,7 +393,7 @@ final class Formular {
 		$html .= $feld( 'infos', 'Link zu weiteren Infos', $input( 'infos', 'url', false, ' placeholder="https://"' ) );
 		$html .= $feld( 'anmeldung', 'Link zur Anmeldung', $input( 'anmeldung', 'url', false, ' placeholder="https://"' ) );
 		$html .= $feld( 'beschreibung', 'Beschreibung', '<textarea id="dtrv-f-beschreibung" name="beschreibung" rows="5" maxlength="3000">' . esc_textarea( $w['beschreibung'] ) . '</textarea>', false, 'Was erwartet die Teilnehmenden? Strecke, Länge, für wen geeignet …' );
-		$html .= $feld( 'bild', 'Bild (optional)', '<input type="file" id="dtrv-f-bild" name="bild" accept="image/jpeg,image/png,image/webp">', false, 'JPG, PNG oder WebP, höchstens ' . self::BILD_MAX_MB . ' MB. Nur eigene Bilder oder solche, die du verwenden darfst.' );
+		$html .= $feld( 'bild', 'Bild (optional)', '<input type="file" id="dtrv-f-bild" name="bild" accept="image/jpeg,image/png,image/webp" data-max-mb="' . self::bild_max_mb() . '">', false, 'JPG, PNG oder WebP, höchstens ' . self::bild_max_mb() . ' MB. Nur eigene Bilder oder solche, die du verwenden darfst.' );
 		$html .= '<div class="dtrv-vorschlag__reihe">'
 			. $feld( 'name', 'Dein Name', $input( 'name', 'text', true, ' autocomplete="name"' ), true )
 			. $feld( 'email', 'Deine E-Mail-Adresse', $input( 'email', 'email', true, ' autocomplete="email"' ), true, 'nur für Rückfragen, wird nicht veröffentlicht' )
@@ -382,14 +409,18 @@ final class Formular {
 
 		// Honigtopf: für Menschen unsichtbar, Bots füllen es aus.
 		$html .= '<p class="dtrv-vorschlag__honig" aria-hidden="true"><label for="dtrv-f-falle">Dieses Feld bitte leer lassen</label><input type="text" id="dtrv-f-falle" name="' . self::FALLE . '" value="" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore></p>';
-		$html .= '<input type="hidden" name="dtrv_t" value="' . esc_attr( self::zeitstempel() ) . '">';
+		$html .= '<input type="hidden" name="dtrv_t" value="' . esc_attr( '' !== self::$token ? self::$token : self::zeitstempel() ) . '">';
 		$html .= '<input type="hidden" name="dtrv_vorschlag_formular" value="1">';
 		$html .= '<p><button type="submit" class="dtrv-termin__knopf">Termin vorschlagen</button></p>';
 		$html .= '<p class="dtrv-vorschlag__hilfe">* Pflichtfeld</p>';
 		// Felder je Kategorie ein-/ausblenden (ohne JavaScript bleiben alle sichtbar).
 		$html .= '<script>(function(){var f=document.getElementById("dtrv-vorschlag");if(!f){return;}var k=f.querySelector("[name=kategorie]");'
 			. 'function z(){f.querySelectorAll("[data-kategorien]").forEach(function(e){e.hidden=e.getAttribute("data-kategorien").split(" ").indexOf(k.value)<0;});}'
-			. 'k.addEventListener("change",z);z();})();</script>';
-		return $html . '</form>';
+			. 'k.addEventListener("change",z);z();'
+			// Zu große Bilder schon im Browser abfangen, bevor alles hochgeladen wird.
+			. 'var b=f.querySelector("[name=bild]");if(b){b.addEventListener("change",function(){var m=parseInt(b.getAttribute("data-max-mb"),10);'
+			. 'if(b.files&&b.files[0]&&b.files[0].size>m*1048576){alert("Das Bild ist größer als "+m+" MB. Bitte ein kleineres wählen.");b.value="";}});}'
+			. '})();</script>';
+		return $html . '</form></details>';
 	}
 }

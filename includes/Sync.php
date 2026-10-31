@@ -33,31 +33,49 @@ final class Sync {
 	 * @return array<string, array<string, mixed>> Status je Kategorie.
 	 */
 	public static function alle(): array {
-		if ( get_transient( self::SPERRE ) ) {
+		if ( ! self::sperren() ) {
 			return array( '_' => array( 'ok' => false, 'meldung' => 'Ein Abgleich läuft bereits.' ) );
 		}
-		set_transient( self::SPERRE, 1, 5 * MINUTE_IN_SECONDS );
-
-		Detailseiten::migrieren();
-		self::$index = self::index();
-		$status      = array();
-		foreach ( Plugin::kategorien() as $slug => $label ) {
-			$url = Settings::ical_url( $slug );
-			if ( '' === $url ) {
-				$status[ $slug ] = array(
-					'ok'      => false,
-					'zeit'    => time(),
-					'meldung' => 'Keine iCal-Adresse eingetragen.',
-				);
-				continue;
-			}
-			$status[ $slug ] = self::kategorie( $slug, $url );
-		}
-
-		update_option( self::OPTION_STATUS, $status, false );
+		// Gleich am Anfang setzen, damit WP-Cron nicht parallel startet.
 		update_option( self::OPTION_LETZTER, time(), false );
-		delete_transient( self::SPERRE );
+
+		$status = array();
+		try {
+			Detailseiten::migrieren();
+			self::$index = self::index();
+			foreach ( Plugin::kategorien() as $slug => $label ) {
+				$url = Settings::ical_url( $slug );
+				if ( '' === $url ) {
+					$status[ $slug ] = array(
+						'ok'      => false,
+						'zeit'    => time(),
+						'meldung' => 'Keine iCal-Adresse eingetragen.',
+					);
+					continue;
+				}
+				$status[ $slug ] = self::kategorie( $slug, $url );
+			}
+			update_option( self::OPTION_STATUS, $status, false );
+		} finally {
+			delete_option( self::SPERRE );
+		}
 		return $status;
+	}
+
+	/**
+	 * Atomare Sperre: add_option schlägt fehl, wenn die Option schon existiert.
+	 * Eine Sperre älter als 15 Minuten gilt als hängengeblieben.
+	 */
+	private static function sperren(): bool {
+		if ( add_option( self::SPERRE, time(), '', false ) ) {
+			return true;
+		}
+		wp_cache_delete( self::SPERRE, 'options' );
+		if ( time() - (int) get_option( self::SPERRE, 0 ) < 15 * MINUTE_IN_SECONDS ) {
+			return false;
+		}
+		delete_option( self::SPERRE );
+		return add_option( self::SPERRE, time(), '', false );
 	}
 
 	private static function kategorie( string $slug, string $url ): array {

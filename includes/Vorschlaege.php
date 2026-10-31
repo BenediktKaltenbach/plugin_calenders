@@ -177,7 +177,8 @@ final class Vorschlaege {
 			}
 			delete_post_meta( $id, '_dtrv_email' );
 		}
-		if ( 'eingetragen' === $status ) {
+		// Dankes-Mail nur einmal, auch bei Doppelklick oder zwei Vorständen gleichzeitig.
+		if ( 'eingetragen' === $status && add_post_meta( $id, '_dtrv_dank_gesendet', time(), true ) ) {
 			self::dankes_mail( $id );
 			delete_post_meta( $id, '_dtrv_email' );
 		}

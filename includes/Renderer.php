@@ -118,8 +118,8 @@ final class Renderer {
 		$land = '';
 		if ( ! empty( $felder['land'] ) ) {
 			$land = sprintf(
-				'<abbr class="dtrv-termin__land" title="%1$s">%2$s</abbr> ',
-				esc_attr( $felder['land'] ),
+				'<span class="dtrv-termin__land" role="img" aria-label="%1$s" title="%1$s">%2$s</span> ',
+				esc_attr( self::land_name( $felder['land'] ) ),
 				esc_html( Format::flagge( $felder['land'] ) )
 			);
 		}
@@ -193,7 +193,7 @@ final class Renderer {
 		}
 		$zeilen = array( 'Datum' => $datum );
 		if ( '' !== $d['ort'] ) {
-			$land            = ! empty( $felder['land'] ) ? '<abbr class="dtrv-termin__land" title="' . esc_attr( $felder['land'] ) . '">' . esc_html( Format::flagge( $felder['land'] ) ) . '</abbr> ' : '';
+			$land            = ! empty( $felder['land'] ) ? '<span class="dtrv-termin__land" role="img" aria-label="' . esc_attr( self::land_name( $felder['land'] ) ) . '">' . esc_html( Format::flagge( $felder['land'] ) ) . '</span> ' : '';
 			$zeilen['Ort'] = $land . esc_html( $d['ort'] );
 		}
 		$klasse = Format::klasse( $d['kategorie'], $felder['klasse'] ?? '' );
@@ -229,6 +229,17 @@ final class Renderer {
 			$html .= '<div class="dtrv-termin__aktionen dtrv-infobox__aktionen">' . $knoepfe . '</div>';
 		}
 		return $html . '</div>';
+	}
+
+	/** Ländername für Screenreader, z. B. „NL“ → „Niederlande“ (ohne intl: der Code). */
+	private static function land_name( string $land ): string {
+		if ( class_exists( '\Locale' ) ) {
+			$name = \Locale::getDisplayRegion( '-' . $land, 'de' );
+			if ( $name && $name !== $land ) {
+				return $name;
+			}
+		}
+		return $land;
 	}
 
 	/** Veröffentlichte Seite (sonst Beitrag) hat Vorrang vor dem Link aus „Infos:“. */

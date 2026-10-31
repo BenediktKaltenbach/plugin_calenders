@@ -295,3 +295,34 @@
 .dtrv-vorschlag [hidden] {
 	display: none !important;
 }
+
+/* Vorschlagsformular zugeklappt: nur der Knopf ist sichtbar. */
+.dtrv-vorschlag-box > summary {
+	list-style: none;
+	cursor: pointer;
+	border: 0;
+}
+
+.dtrv-vorschlag-box > summary::-webkit-details-marker {
+	display: none;
+}
+
+.dtrv-vorschlag-box > summary::after {
+	content: "▾";
+	margin-left: 10px;
+}
+
+.dtrv-vorschlag-box[open] > summary {
+	margin-bottom: 1.25rem;
+}
+
+.dtrv-vorschlag-box[open] > summary::after {
+	content: "▴";
+}
+
+/* iOS zoomt bei Eingabefeldern unter 16px automatisch hinein. */
+.dtrv-vorschlag input,
+.dtrv-vorschlag select,
+.dtrv-vorschlag textarea {
+	font-size: max(16px, 1em);
+}
