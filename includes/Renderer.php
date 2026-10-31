@@ -167,7 +167,64 @@ final class Renderer {
 		);
 	}
 
-	/** Veröffentlichte Detailseite (Phase 2) hat Vorrang vor dem Link aus „Infos:“. */
+	/**
+	 * Block „Termin-Infobox“ auf einer Detailseite. Bleibt mit dem Termin verbunden,
+	 * Änderungen im Kalender erscheinen nach dem nächsten Abgleich.
+	 */
+	public static function infobox( int $termin_id ): string {
+		$post = $termin_id ? get_post( $termin_id ) : null;
+		if ( ! $post || PostType::NAME !== $post->post_type ) {
+			return '<div class="dtrv-infobox is-entfernt"><p>Kein Termin verknüpft.</p></div>';
+		}
+		$d = PostType::daten( $termin_id );
+		if ( $d['entfernt'] ) {
+			return '<div class="dtrv-infobox is-entfernt"><p><strong>Dieser Termin wurde abgesagt oder aus dem Kalender entfernt.</strong></p></div>';
+		}
+
+		$felder  = $d['felder'];
+		$status  = $d['status'];
+		$vorbei  = $d['ende'] < time();
+		$klassen = 'dtrv-infobox' . ( $status ? ' is-' . $status : '' ) . ( $vorbei ? ' is-vorbei' : '' );
+
+		$datum = esc_html( Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ) );
+		if ( $status ) {
+			$datum = '<span class="dtrv-infobox__datum">' . $datum . '</span> <span class="dtrv-termin__hinweis">' . esc_html( self::STATUS_TEXT[ $status ] ?? $status ) . '</span>';
+		}
+		$zeilen = array( 'Datum' => $datum );
+		if ( '' !== $d['ort'] ) {
+			$land            = ! empty( $felder['land'] ) ? '<abbr class="dtrv-termin__land" title="' . esc_attr( $felder['land'] ) . '">' . esc_html( Format::flagge( $felder['land'] ) ) . '</abbr> ' : '';
+			$zeilen['Ort'] = $land . esc_html( $d['ort'] );
+		}
+		if ( ! empty( $felder['klasse'] ) ) {
+			$zeilen['Klasse'] = sprintf(
+				'<a class="dtrv-termin__klasse" href="%s" target="_blank" rel="noopener">%s%s</a>',
+				esc_url( Settings::einstellungen()['klasse_link'] ),
+				esc_html( $felder['klasse'] ),
+				self::ICON_KLASSE
+			);
+		}
+
+		$html = '<div class="' . esc_attr( $klassen ) . '"><dl class="dtrv-infobox__liste">';
+		foreach ( $zeilen as $label => $wert ) {
+			$html .= '<dt>' . esc_html( $label ) . '</dt><dd>' . $wert . '</dd>';
+		}
+		$html .= '</dl>';
+
+		$knoepfe = '';
+		if ( ! empty( $felder['anmeldung'] ) && 'abgesagt' !== $status && ! $vorbei ) {
+			$knoepfe .= self::knopf( $felder['anmeldung'], 'Anmelden', false );
+		}
+		$hier = untrailingslashit( (string) get_permalink() );
+		if ( ! empty( $felder['infos'] ) && untrailingslashit( $felder['infos'] ) !== $hier ) {
+			$knoepfe .= self::knopf( $felder['infos'], 'Weitere Infos', ! empty( $knoepfe ) );
+		}
+		if ( $knoepfe ) {
+			$html .= '<div class="dtrv-termin__aktionen dtrv-infobox__aktionen">' . $knoepfe . '</div>';
+		}
+		return $html . '</div>';
+	}
+
+	/** Veröffentlichte Detailseite hat Vorrang vor dem Link aus „Infos:“. */
 	private static function infos_url( int $post_id, array $felder ): string {
 		$detail = (int) get_post_meta( $post_id, '_dtrv_detail_post', true );
 		if ( $detail && 'publish' === get_post_status( $detail ) ) {

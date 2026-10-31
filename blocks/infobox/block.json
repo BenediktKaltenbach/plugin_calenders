@@ -1,0 +1,22 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "dtrv/infobox",
+	"title": "Termin-Infobox",
+	"category": "widgets",
+	"icon": "info-outline",
+	"description": "Datum, Ort, Klasse und Anmelde-Knopf eines Termins. Aktualisiert sich mit dem Google Kalender.",
+	"keywords": [ "termin", "infobox", "dtrv" ],
+	"textdomain": "dtrv-termine",
+	"attributes": {
+		"terminId": { "type": "integer", "default": 0 }
+	},
+	"supports": {
+		"html": false,
+		"align": [ "wide" ],
+		"spacing": { "margin": true, "padding": true }
+	},
+	"editorScript": "file:./index.js",
+	"style": "dtrv-termine",
+	"render": "file:./render.php"
+}

@@ -31,6 +31,7 @@ final class Plugin {
 		if ( is_admin() ) {
 			PostType::admin();
 			Vorschlaege::admin();
+			Detailseiten::admin();
 			Settings::admin();
 		}
 	}
@@ -39,6 +40,7 @@ final class Plugin {
 		wp_register_style( 'dtrv-termine', plugins_url( 'assets/termine.css', DATEI ), array(), VERSION );
 		register_block_type( dirname( DATEI ) . '/blocks/termine' );
 		register_block_type( dirname( DATEI ) . '/blocks/vorschlag' );
+		register_block_type( dirname( DATEI ) . '/blocks/infobox' );
 		add_shortcode( 'dtrv_termine', array( Renderer::class, 'shortcode' ) );
 		add_shortcode( 'dtrv_termin_vorschlag', array( Formular::class, 'shortcode' ) );
 	}

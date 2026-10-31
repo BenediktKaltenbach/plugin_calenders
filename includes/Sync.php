@@ -166,6 +166,11 @@ final class Sync {
 			}
 		}
 
+		// Detailseiten-Entwürfe für kommende Termine (einmalig je Termin).
+		foreach ( array_keys( $gesehen ) as $schluessel ) {
+			Detailseiten::pruefen( (int) ( self::$index[ $schluessel ]['id'] ?? 0 ) );
+		}
+
 		return array(
 			'ok'      => true,
 			'zeit'    => time(),

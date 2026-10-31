@@ -242,3 +242,52 @@
 	height: 1px;
 	overflow: hidden;
 }
+
+/* Block „Termin-Infobox“ auf Detailseiten */
+
+.dtrv-infobox {
+	--dtrv-akzent: #006666;
+	margin: 1.5rem 0;
+	padding: 1rem 1.25rem;
+	border-left: 4px solid var(--dtrv-akzent);
+	background: rgba(0, 102, 102, 0.06);
+}
+
+.dtrv-infobox__liste {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.25rem 1rem;
+	align-items: center;
+	margin: 0;
+}
+
+.dtrv-infobox__liste dt {
+	font-weight: 400;
+	opacity: 0.75;
+}
+
+.dtrv-infobox__liste dd {
+	margin: 0;
+}
+
+.dtrv-infobox .dtrv-termin__klasse {
+	margin-left: -10px;
+}
+
+.dtrv-infobox__aktionen {
+	justify-content: flex-start;
+	margin-top: 1rem;
+}
+
+.dtrv-infobox.is-abgesagt .dtrv-infobox__datum {
+	text-decoration: line-through;
+}
+
+.dtrv-infobox.is-entfernt {
+	border-left-color: #b32d2e;
+	background: #fcf0f1;
+}
+
+.dtrv-infobox.is-entfernt p {
+	margin: 0;
+}

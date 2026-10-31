@@ -12,12 +12,25 @@ final class Settings {
 	public const OPTION_SCHLUESSEL = 'dtrv_termine_cron_schluessel';
 	private const SEITE            = 'dtrv-termine';
 
+	/** Standard-Detailseite je Kategorie, solange nichts gespeichert ist (laut Plan). */
+	private const DETAIL_STANDARD = array(
+		'wettkampf'    => 'beitrag',
+		'breitensport' => 'keine',
+		'ausbildung'   => 'beitrag',
+		'verband'      => 'beitrag',
+	);
+
+	private static string $hook = '';
+
 	public static function einstellungen(): array {
 		$werte = (array) get_option( self::OPTION, array() );
 		return array(
-			'ical'            => (array) ( $werte['ical'] ?? array() ),
-			'klasse_link'     => ! empty( $werte['klasse_link'] ) ? $werte['klasse_link'] : home_url( '/klassifikation-von-tretrollerveranstaltungen/' ),
-			'vorschlag_email' => ! empty( $werte['vorschlag_email'] ) ? $werte['vorschlag_email'] : (string) get_option( 'admin_email' ),
+			'ical'              => (array) ( $werte['ical'] ?? array() ),
+			'klasse_link'       => ! empty( $werte['klasse_link'] ) ? $werte['klasse_link'] : home_url( '/klassifikation-von-tretrollerveranstaltungen/' ),
+			'vorschlag_email'   => ! empty( $werte['vorschlag_email'] ) ? $werte['vorschlag_email'] : (string) get_option( 'admin_email' ),
+			'detail'            => array_merge( self::DETAIL_STANDARD, (array) ( $werte['detail'] ?? array() ) ),
+			'beitragskategorie' => (array) ( $werte['beitragskategorie'] ?? array() ),
+			'standardbild'      => (array) ( $werte['standardbild'] ?? array() ),
 		);
 	}
 
@@ -34,10 +47,36 @@ final class Settings {
 		add_action( 'admin_menu', array( self::class, 'menue' ) );
 		add_action( 'admin_init', array( self::class, 'registrieren' ) );
 		add_action( 'admin_post_dtrv_termine_abgleich', array( self::class, 'abgleich_knopf' ) );
+		add_action( 'admin_enqueue_scripts', array( self::class, 'skripte' ) );
+	}
+
+	/** Mediathek für die Auswahl der Standardbilder. */
+	public static function skripte( string $hook ): void {
+		if ( $hook !== self::$hook ) {
+			return;
+		}
+		wp_enqueue_media();
+		wp_add_inline_script(
+			'media-editor',
+			"document.addEventListener('click', function (e) {
+				var w = e.target.closest('.dtrv-bild-waehlen'), r = e.target.closest('.dtrv-bild-entfernen');
+				if (!w && !r) { return; }
+				e.preventDefault();
+				var b = w || r, feld = document.getElementById(b.dataset.feld), vorschau = document.getElementById(b.dataset.vorschau);
+				if (r) { feld.value = ''; vorschau.innerHTML = ''; return; }
+				var rahmen = wp.media({ title: 'Standardbild wählen', library: { type: 'image' }, multiple: false });
+				rahmen.on('select', function () {
+					var a = rahmen.state().get('selection').first().toJSON();
+					feld.value = a.id;
+					vorschau.innerHTML = '<img src=\"' + (a.sizes && a.sizes.thumbnail ? a.sizes.thumbnail.url : a.url) + '\" style=\"width:60px;height:60px;object-fit:cover\">';
+				});
+				rahmen.open();
+			});"
+		);
 	}
 
 	public static function menue(): void {
-		add_submenu_page(
+		self::$hook = (string) add_submenu_page(
 			'edit.php?post_type=' . PostType::NAME,
 			'DTRV-Termine – Einstellungen',
 			'Einstellungen',
@@ -69,6 +108,12 @@ final class Settings {
 			add_settings_error( self::OPTION, 'vorschlag-email', 'Mindestens eine E-Mail-Adresse für Vorschläge war ungültig und wurde entfernt.' );
 		}
 		$sauber['vorschlag_email'] = implode( ', ', $adressen );
+		foreach ( array_keys( Plugin::kategorien() ) as $slug ) {
+			$art                                = sanitize_key( $eingabe['detail'][ $slug ] ?? '' );
+			$sauber['detail'][ $slug ]            = isset( Detailseiten::ARTEN[ $art ] ) ? $art : 'keine';
+			$sauber['beitragskategorie'][ $slug ] = absint( $eingabe['beitragskategorie'][ $slug ] ?? 0 );
+			$sauber['standardbild'][ $slug ]      = absint( $eingabe['standardbild'][ $slug ] ?? 0 );
+		}
 		foreach ( array_keys( Plugin::kategorien() ) as $slug ) {
 			$url = trim( (string) ( $eingabe['ical'][ $slug ] ?? '' ) );
 			$url = preg_replace( '#^webcals?://#i', 'https://', $url );
@@ -125,6 +170,45 @@ final class Settings {
 							<p class="description">Erklärseite, auf die die Klasse (z. B. „F | 0-5“) verlinkt.</p></td>
 					</tr>
 				</table>
+				<h2>Detailseiten</h2>
+				<p>Zu jedem kommenden Termin legt der Abgleich einmalig einen <strong>Entwurf</strong> an (nie veröffentlicht), mit Beschreibung und Block „Termin-Infobox“. Die Zeile <code>Detail: Beitrag | Seite | keine</code> im Termin hat Vorrang vor dem Standard hier.</p>
+				<table class="widefat striped" style="max-width:60rem">
+					<thead><tr><th>Kategorie</th><th>Standard</th><th>Beitragskategorie</th><th>Standardbild (Beitragsbild)</th></tr></thead>
+					<tbody>
+					<?php foreach ( Plugin::kategorien() as $slug => $label ) : ?>
+						<?php $bild = (int) ( $e['standardbild'][ $slug ] ?? 0 ); ?>
+						<tr>
+							<td><?php echo esc_html( $label ); ?></td>
+							<td><select name="<?php echo esc_attr( self::OPTION ); ?>[detail][<?php echo esc_attr( $slug ); ?>]">
+								<?php foreach ( Detailseiten::ARTEN as $art => $art_label ) : ?>
+									<option value="<?php echo esc_attr( $art ); ?>" <?php selected( $e['detail'][ $slug ] ?? 'keine', $art ); ?>><?php echo esc_html( $art_label ); ?></option>
+								<?php endforeach; ?>
+							</select></td>
+							<td>
+							<?php
+							wp_dropdown_categories(
+								array(
+									'name'              => self::OPTION . '[beitragskategorie][' . $slug . ']',
+									'selected'          => (int) ( $e['beitragskategorie'][ $slug ] ?? 0 ),
+									'show_option_none'  => '– Standard –',
+									'option_none_value' => 0,
+									'hide_empty'        => false,
+									'hierarchical'      => true,
+								)
+							);
+							?>
+							</td>
+							<td>
+								<input type="hidden" id="dtrv-bild-<?php echo esc_attr( $slug ); ?>" name="<?php echo esc_attr( self::OPTION ); ?>[standardbild][<?php echo esc_attr( $slug ); ?>]" value="<?php echo esc_attr( $bild ? (string) $bild : '' ); ?>">
+								<span id="dtrv-bild-vorschau-<?php echo esc_attr( $slug ); ?>" style="display:inline-block;vertical-align:middle;margin-right:.5em"><?php echo $bild ? wp_get_attachment_image( $bild, array( 60, 60 ) ) : ''; ?></span>
+								<button type="button" class="button dtrv-bild-waehlen" data-feld="dtrv-bild-<?php echo esc_attr( $slug ); ?>" data-vorschau="dtrv-bild-vorschau-<?php echo esc_attr( $slug ); ?>">Wählen</button>
+								<button type="button" class="button-link dtrv-bild-entfernen" data-feld="dtrv-bild-<?php echo esc_attr( $slug ); ?>" data-vorschau="dtrv-bild-vorschau-<?php echo esc_attr( $slug ); ?>">Entfernen</button>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+					</tbody>
+				</table>
+
 				<h2>Terminvorschläge</h2>
 				<table class="form-table" role="presentation">
 					<tr>

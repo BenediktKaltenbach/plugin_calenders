@@ -19,6 +19,17 @@ final class Rest {
 			)
 		);
 
+		// Termine mit Status der Detailseiten: für die Auswahl in der Infobox und das Briefing.
+		register_rest_route(
+			'dtrv-termine/v1',
+			'/termine',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( self::class, 'termine' ),
+				'permission_callback' => static fn( \WP_REST_Request $anfrage ) => current_user_can( 'edit_posts' ) || self::erlaubt( $anfrage ),
+			)
+		);
+
 		// Offene Vorschläge für das wöchentliche Briefing (ohne Kontaktdaten).
 		register_rest_route(
 			'dtrv-termine/v1',
@@ -29,6 +40,41 @@ final class Rest {
 				'permission_callback' => array( self::class, 'erlaubt' ),
 			)
 		);
+	}
+
+	public static function termine(): \WP_REST_Response {
+		$ids = get_posts(
+			array(
+				'post_type'      => PostType::NAME,
+				'post_status'    => 'publish',
+				'posts_per_page' => 300,
+				'fields'         => 'ids',
+				'meta_key'       => '_dtrv_start', // phpcs:ignore WordPress.DB.SlowDBQuery
+				'orderby'        => 'meta_value_num',
+				'order'          => 'ASC',
+			)
+		);
+		$liste = array();
+		foreach ( $ids as $id ) {
+			$d      = PostType::daten( $id );
+			$detail = (int) get_post_meta( $id, '_dtrv_detail_post', true );
+			$liste[] = array(
+				'id'             => $id,
+				'titel'          => get_the_title( $id ),
+				'datum'          => Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ),
+				'start'          => gmdate( 'c', $d['start'] ),
+				'kategorie'      => Plugin::kategorien()[ $d['kategorie'] ] ?? $d['kategorie'],
+				'ort'            => $d['ort'],
+				'status'         => $d['status'],
+				'entfernt'       => (bool) $d['entfernt'],
+				'anmeldung'      => $d['felder']['anmeldung'] ?? '',
+				'detailseite'    => Detailseiten::status( $id ),
+				'detail_link'    => $detail ? (string) get_permalink( $detail ) : '',
+				'bild'           => Detailseiten::bild_status( $id ),
+				'warnungen'      => $d['warnungen'],
+			);
+		}
+		return rest_ensure_response( $liste );
 	}
 
 	public static function vorschlaege(): \WP_REST_Response {

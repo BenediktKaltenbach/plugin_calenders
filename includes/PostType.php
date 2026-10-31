@@ -69,6 +69,8 @@ final class PostType {
 			'kategorie' => 'Kategorie',
 			'ort'       => 'Ort',
 			'felder'    => 'Angaben',
+			'detail'    => 'Detailseite',
+			'bild'      => 'Bild',
 			'hinweise'  => 'Hinweise',
 		);
 	}
@@ -91,6 +93,12 @@ final class PostType {
 					$teile[] = '<code>' . esc_html( $feld ) . '</code> ' . esc_html( $wert );
 				}
 				echo wp_kses_post( implode( '<br>', $teile ) );
+				break;
+			case 'detail':
+				echo wp_kses_post( Detailseiten::spalte_detail( $post_id ) );
+				break;
+			case 'bild':
+				echo wp_kses_post( Detailseiten::spalte_bild( $post_id ) );
 				break;
 			case 'hinweise':
 				$hinweise = array();
@@ -138,6 +146,7 @@ final class PostType {
 	public static function zeilen_aktionen( array $aktionen, \WP_Post $post ): array {
 		if ( self::NAME === $post->post_type ) {
 			unset( $aktionen['inline hide-if-no-js'] );
+			$aktionen += Detailseiten::aktionen( $post->ID );
 		}
 		return $aktionen;
 	}
