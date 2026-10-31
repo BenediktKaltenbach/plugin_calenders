@@ -1,6 +1,6 @@
 <?php
 /**
- * Öffentliches Formular „Termin vorschlagen“ (Block und Shortcode).
+ * Öffentliches Formular „Termin einreichen“ (Block und Shortcode).
  *
  * Spam-Schutz ohne reCAPTCHA: Honigtopf-Feld, Mindest-Ausfüllzeit
  * (signierter Zeitstempel), höchstens 5 Vorschläge pro IP und Stunde.
@@ -94,7 +94,7 @@ final class Formular {
 			exit;
 		}
 
-		self::$werte  = self::werte();
+		self::$werte  = self::ort_mit_link( self::werte() );
 		self::$fehler = self::pruefen( self::$werte );
 		if ( $zeit > self::HOECHSTALTER ) {
 			self::$fehler['_'] = 'Das Formular war zu lange geöffnet. Bitte noch einmal absenden.';
@@ -188,7 +188,9 @@ final class Formular {
 			$f['zeit_bis'] = 'Die Endzeit muss nach der Startzeit liegen.';
 		}
 		if ( '' === $w['ort'] ) {
-			$f['ort'] = 'Bitte einen Ort angeben.';
+			$f['ort'] = '' !== $w['lat']
+				? 'Den Kartenpunkt haben wir übernommen – bitte noch den Ortsnamen eintragen (z. B. „Worms, Marktplatz“).'
+				: 'Bitte einen Ort angeben.';
 		}
 		if ( 'breitensport' === $w['kategorie'] && ! isset( self::ARTEN[ $w['art'] ] ) ) {
 			$f['art'] = 'Bitte wählen: Freizeit oder Ambitioniert.';
@@ -227,7 +229,29 @@ final class Formular {
 	}
 
 	/**
-	 * Koordinaten des Vorschlags: Link/Koordinaten aus dem Feld „Genauer Treffpunkt“
+	 * Steht im Ortsfeld ein Karten-Link (oder Koordinaten), werden daraus lat/lng; der Link
+	 * kommt als Kartenlink zum Vorstand und aus dem Ortsnamen heraus.
+	 */
+	private static function ort_mit_link( array $w ): array {
+		if ( ! preg_match( '#https?://\S+#i', $w['ort'], $m ) && null === Geo::lesen( $w['ort'] ) ) {
+			return $w;
+		}
+		$geo = Geo::lesen_mit_kurzlink( $w['ort'] );
+		if ( $geo ) {
+			$w['lat'] = (string) $geo['lat'];
+			$w['lng'] = (string) $geo['lng'];
+		}
+		if ( ! empty( $m[0] ) ) {
+			$w['karte'] = $m[0];
+			$w['ort']   = trim( str_replace( $m[0], '', $w['ort'] ), " ,;-\t" );
+		} elseif ( $geo ) {
+			$w['ort'] = '';
+		}
+		return $w;
+	}
+
+	/**
+	 * Koordinaten des Vorschlags: Link/Koordinaten aus dem Ortsfeld
 	 * vor dem über „Ort suchen“ gewählten Treffer.
 	 *
 	 * @return array{lat: float, lng: float}|string Leerer String, wenn nichts angegeben.
@@ -344,6 +368,7 @@ final class Formular {
 
 	public static function html(): string {
 		wp_enqueue_style( 'dtrv-termine' );
+		wp_enqueue_script( 'dtrv-vorschlag' );
 
 		if ( 'danke' === ( $_GET['vorschlag'] ?? '' ) ) { // phpcs:ignore WordPress.Security.NonceVerification
 			return '<div id="dtrv-vorschlag" class="dtrv-vorschlag dtrv-vorschlag--danke" role="status"><p><strong>Vielen Dank!</strong> Dein Vorschlag ist bei uns eingegangen. Wir prüfen ihn und tragen ihn dann in den Kalender ein. Sobald er online ist, bekommst du eine kurze E-Mail.</p></div>';
@@ -392,7 +417,7 @@ final class Formular {
 
 		// Klein starten: nur ein Knopf, das Formular klappt auf (nach Fehlern bleibt es offen).
 		$html  = '<details id="dtrv-vorschlag" class="dtrv-vorschlag-box"' . ( $f ? ' open' : '' ) . '>';
-		$html .= '<summary class="dtrv-termin__knopf">Termin vorschlagen</summary>';
+		$html .= '<summary class="dtrv-termin__knopf">Termin einreichen</summary>';
 		$html .= '<form class="dtrv-vorschlag" method="post" enctype="multipart/form-data" action="#dtrv-vorschlag">';
 		if ( isset( $f['_'] ) ) {
 			$html .= '<div class="dtrv-vorschlag__meldung" role="alert">' . esc_html( $f['_'] ) . '</div>';
@@ -416,11 +441,10 @@ final class Formular {
 			$input( 'ort', 'text', true, ' maxlength="150"' )
 				. ' <button type="button" class="dtrv-vorschlag__suchen" hidden>Ort suchen</button>',
 			true,
-			'z. B. „Worms“ oder „Budel (NL)“. Mit „Ort suchen“ den passenden Treffer wählen, damit der Termin richtig auf der Karte landet.'
+			'z. B. „Worms, Marktplatz“. Mit „Ort suchen“ den passenden Treffer wählen, damit der Termin richtig auf der Karte landet. Ein Link aus Google Maps oder OpenStreetMap im Feld geht auch.'
 		);
 		$html .= '<div class="dtrv-vorschlag__treffer" aria-live="polite"></div>';
 		$html .= '<input type="hidden" name="lat" value="' . esc_attr( $w['lat'] ) . '"><input type="hidden" name="lng" value="' . esc_attr( $w['lng'] ) . '">';
-		$html .= $feld( 'karte', 'Genauer Treffpunkt (optional)', $input( 'karte', 'text', false, ' placeholder="Link aus Google Maps oder OpenStreetMap"' ), false, 'Am genauesten: In Google Maps oder OpenStreetMap den Startpunkt suchen, „Teilen“ wählen und den Link hier einfügen.' );
 
 		// Klasse: Art nur bei Breitensport (Wettkampf ist automatisch „W“), Bergfaktor bei Wettkampf und Breitensport.
 		$auswahl = static function ( string $name, array $optionen, string $leer ) use ( $w ): string {
@@ -432,10 +456,10 @@ final class Formular {
 		};
 		$klasse_link = esc_url( Settings::einstellungen()['klasse_link'] );
 		$html       .= '<div class="dtrv-vorschlag__reihe">'
-			. '<div data-kategorien="breitensport">' . $feld( 'art', 'Art der Veranstaltung', $auswahl( 'art', self::ARTEN, '– bitte wählen –' ), true, 'nur bei Breitensport' ) . '</div>'
-			. '<div data-kategorien="wettkampf breitensport">' . $feld( 'bergfaktor', 'Bergfaktor', $auswahl( 'bergfaktor', self::BERGFAKTOR, '– weiß ich nicht –' ), false, 'Höhenmeter pro Kilometer, nur bei Wettkampf und Breitensport' ) . '</div>'
+			. '<div data-kategorien="breitensport">' . $feld( 'art', 'Art der Veranstaltung', $auswahl( 'art', self::ARTEN, '– bitte wählen –' ), true ) . '</div>'
+			. '<div data-kategorien="wettkampf breitensport">' . $feld( 'bergfaktor', 'Bergfaktor', $auswahl( 'bergfaktor', self::BERGFAKTOR, '– weiß ich nicht –' ), false, 'Höhenmeter pro Kilometer' ) . '</div>'
 			. '</div>';
-		$html       .= '<p class="dtrv-vorschlag__hilfe" data-kategorien="wettkampf breitensport">Erklärung der Klassen: <a href="' . $klasse_link . '" target="_blank" rel="noopener">Klassifikation von Tretrollerveranstaltungen</a>. Wettkämpfe sind immer „W“.</p>';
+		$html       .= '<p class="dtrv-vorschlag__hilfe" data-kategorien="wettkampf breitensport">Erklärung der Klassen: <a href="' . $klasse_link . '" target="_blank" rel="noopener">Klassifikation von Tretrollerveranstaltungen</a></p>';
 		$html .= $feld( 'infos', 'Link zu weiteren Infos', $input( 'infos', 'url', false, ' placeholder="https://"' ) );
 		$html .= $feld( 'anmeldung', 'Link zur Anmeldung', $input( 'anmeldung', 'url', false, ' placeholder="https://"' ) );
 		$html .= $feld( 'beschreibung', 'Beschreibung', '<textarea id="dtrv-f-beschreibung" name="beschreibung" rows="5" maxlength="3000">' . esc_textarea( $w['beschreibung'] ) . '</textarea>', false, 'Was erwartet die Teilnehmenden? Strecke, Länge, für wen geeignet …' );
@@ -457,31 +481,8 @@ final class Formular {
 		$html .= '<p class="dtrv-vorschlag__honig" aria-hidden="true"><label for="dtrv-f-falle">Dieses Feld bitte leer lassen</label><input type="text" id="dtrv-f-falle" name="' . self::FALLE . '" value="" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore></p>';
 		$html .= '<input type="hidden" name="dtrv_t" value="' . esc_attr( '' !== self::$token ? self::$token : self::zeitstempel() ) . '">';
 		$html .= '<input type="hidden" name="dtrv_vorschlag_formular" value="1">';
-		$html .= '<p><button type="submit" class="dtrv-termin__knopf">Termin vorschlagen</button></p>';
+		$html .= '<p><button type="submit" class="dtrv-termin__knopf">Termin einreichen</button></p>';
 		$html .= '<p class="dtrv-vorschlag__hilfe">* Pflichtfeld</p>';
-		// Felder je Kategorie ein-/ausblenden (ohne JavaScript bleiben alle sichtbar).
-		$html .= '<script>(function(){var f=document.getElementById("dtrv-vorschlag");if(!f){return;}var k=f.querySelector("[name=kategorie]");'
-			. 'function z(){f.querySelectorAll("[data-kategorien]").forEach(function(e){e.hidden=e.getAttribute("data-kategorien").split(" ").indexOf(k.value)<0;});}'
-			. 'k.addEventListener("change",z);z();'
-			// Doppeltes Absenden verhindern; nach „Zurück“ (bfcache) Knopf und Felder wiederherstellen.
-			. 'var fo=f.querySelector("form"),sb=fo&&fo.querySelector("button[type=submit]");'
-			. 'if(fo&&sb){fo.addEventListener("submit",function(){setTimeout(function(){sb.disabled=true;sb.textContent="Wird gesendet …";},0);});}'
-			. 'window.addEventListener("pageshow",function(){if(sb){sb.disabled=false;sb.textContent="Termin vorschlagen";}z();});'
-			// Ort suchen: Treffer von OpenStreetMap zur Auswahl (keine Suche beim Tippen, Nominatim-Regeln).
-			. 'var s=f.querySelector(".dtrv-vorschlag__suchen"),t=f.querySelector(".dtrv-vorschlag__treffer"),o=f.querySelector("[name=ort]"),la=f.querySelector("[name=lat]"),ln=f.querySelector("[name=lng]");'
-			. 'if(s&&window.fetch){s.hidden=false;o.addEventListener("input",function(){la.value="";ln.value="";});'
-			. 's.addEventListener("click",function(){if(o.value.trim().length<3){return;}t.textContent="Suche …";'
-			. 'var ou=' . wp_json_encode( rest_url( 'dtrv-termine/v1/orte' ) ) . ';'
-			. 'fetch(ou+(ou.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(o.value)).then(function(r){return r.json();}).then(function(l){t.textContent="";'
-			. 'if(!Array.isArray(l)||!l.length){t.textContent=l&&l.message?l.message:"Nichts gefunden – bitte genauer angeben, z. B. mit Land.";return;}'
-			. 'l.forEach(function(x){var lb=document.createElement("label"),r=document.createElement("input");r.type="radio";r.name="dtrv_treffer";'
-			. 'r.addEventListener("change",function(){la.value=x.lat;ln.value=x.lng;});lb.appendChild(r);lb.appendChild(document.createTextNode(" "+x.name));t.appendChild(lb);});'
-			. 'var q=document.createElement("small");q.textContent="Daten © OpenStreetMap-Mitwirkende";t.appendChild(q);'
-			. '}).catch(function(){t.textContent="Ortssuche gerade nicht erreichbar.";});});}'
-			// Zu große Bilder schon im Browser abfangen, bevor alles hochgeladen wird.
-			. 'var b=f.querySelector("[name=bild]");if(b){b.addEventListener("change",function(){var m=parseInt(b.getAttribute("data-max-mb"),10);'
-			. 'if(b.files&&b.files[0]&&b.files[0].size>m*1048576){alert("Das Bild ist größer als "+m+" MB. Bitte ein kleineres wählen.");b.value="";}});}'
-			. '})();</script>';
 		return $html . '</form></details>';
 	}
 }

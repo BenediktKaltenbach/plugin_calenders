@@ -19,6 +19,13 @@ jobs:
           tools: composer:v2
       - name: Syntax prüfen
         run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+      - name: JavaScript prüfen
+        run: |
+          for f in assets/*.js blocks/*/index.js; do node --check "$f"; done
+          if grep -nE '\(\?<[=!]' assets/*.js blocks/*/index.js; then
+            echo "::error::Regex-Lookbehind gefunden – bricht in Safari vor 16.4 das ganze Skript ab."
+            exit 1
+          fi
       - name: Abhängigkeiten installieren
         run: composer install --no-dev --no-interaction --prefer-dist
       - name: Tests

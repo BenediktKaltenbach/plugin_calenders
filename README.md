@@ -95,7 +95,7 @@ Every event gets coordinates for the map. They are resolved in this order, first
 
 The event list shows the coordinates in the "Karte" column with a link to check them on OpenStreetMap, plus a warning if a place was not found or a `Koordinaten:` line could not be read.
 
-The **suggestion form** has a "Ort suchen" button next to the location field. It shows up to five OpenStreetMap matches to choose from; there is no search-as-you-type, which Nominatim does not allow. There is also an optional field for a Google Maps/OpenStreetMap link. The coordinates are included in the notification mail and are put into the pre-filled Google event as a `Koordinaten:` line.
+The **suggestion form** has a "Ort suchen" button next to the location field. It shows up to five OpenStreetMap matches to choose from; there is no search-as-you-type, which Nominatim does not allow. A Google Maps / OpenStreetMap / Apple Maps link pasted into the same field works too: the coordinates are taken from it and the link is passed on to the board. The coordinates are included in the notification mail and are put into the pre-filled Google event as a `Koordinaten:` line.
 
 ## Events on the Tretrollerkarte
 
@@ -107,7 +107,7 @@ If the [My Map Plugin](https://github.com/BenediktKaltenbach/map_plugin) (1.2.0 
 
 ## Event suggestions
 
-Anyone can suggest an event via the **DTRV-Terminvorschlag** block: title, category, date range, optional time, location, class (type F/A for Breitensport, W automatically for Wettkampf; Bergfaktor for both; neither for Ausbildung/Verband), info and registration links, description, an image (JPG/PNG/WebP, max. 8 MB), name and email, privacy consent.
+Anyone can suggest an event via the **DTRV-Terminvorschlag** block. It starts collapsed as a "Termin einreichen" button. Fields: title, category, date range, optional time, location, class (type F/A for Breitensport, W automatically for Wettkampf; Bergfaktor for both; neither for Ausbildung/Verband), info and registration links, description, an image (JPG/PNG/WebP, max. 8 MB), name and email, privacy consent.
 
 - **Spam protection without reCAPTCHA:** hidden honeypot field, minimum fill-in time of 5 seconds, at most 5 suggestions per IP per hour.
 - **Email** to the configured address with all details and **approve** / **reject** links. The links open a confirmation page with a button first, so email security scanners cannot trigger them. No WordPress login is needed.

@@ -41,6 +41,9 @@ final class Plugin {
 
 	public static function block_und_shortcode(): void {
 		wp_register_style( 'dtrv-termine', plugins_url( 'assets/termine.css', DATEI ), array(), VERSION );
+		// Formular-Skript als eigene Datei: Inhaltsfilter verändern Inline-Skripte (z. B. && → &#038;&#038;).
+		wp_register_script( 'dtrv-vorschlag', plugins_url( 'assets/vorschlag.js', DATEI ), array(), VERSION, array( 'in_footer' => true ) );
+		wp_localize_script( 'dtrv-vorschlag', 'dtrvVorschlag', array( 'orte' => rest_url( 'dtrv-termine/v1/orte' ) ) );
 		register_block_type( dirname( DATEI ) . '/blocks/termine' );
 		register_block_type( dirname( DATEI ) . '/blocks/vorschlag' );
 		register_block_type( dirname( DATEI ) . '/blocks/infobox' );
