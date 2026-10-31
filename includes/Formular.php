@@ -27,6 +27,21 @@ final class Formular {
 	private static array $fehler = array();
 	private static array $werte  = array();
 
+	/** Art der Veranstaltung (nur Breitensport; Wettkampf ist immer „W“). */
+	private const ARTEN = array(
+		'F' => 'F – Freizeit',
+		'A' => 'A – Ambitioniert',
+	);
+
+	/** Bergfaktor = Höhenmeter pro Kilometer (Wettkampf und Breitensport). */
+	private const BERGFAKTOR = array(
+		'0-5'   => '0–5 Höhenmeter pro km (flach)',
+		'5-10'  => '5–10 Höhenmeter pro km',
+		'10-15' => '10–15 Höhenmeter pro km',
+		'15-20' => '15–20 Höhenmeter pro km',
+		'20+'   => 'über 20 Höhenmeter pro km',
+	);
+
 	private const KATEGORIE_HINWEIS = array(
 		'wettkampf'    => 'Rennen, Meisterschaften, Eurocups',
 		'breitensport' => 'Touren, autofreie Tage, CTF/RTF, Challenges',
@@ -101,6 +116,8 @@ final class Formular {
 			'zeit_von'     => $text( 'zeit_von' ),
 			'zeit_bis'     => $text( 'zeit_bis' ),
 			'ort'          => $text( 'ort' ),
+			'art'          => strtoupper( $text( 'art' ) ),
+			'bergfaktor'   => $text( 'bergfaktor' ),
 			'infos'        => esc_url_raw( $text( 'infos' ), array( 'http', 'https' ) ),
 			'anmeldung'    => esc_url_raw( $text( 'anmeldung' ), array( 'http', 'https' ) ),
 			'beschreibung' => sanitize_textarea_field( wp_unslash( $_POST['beschreibung'] ?? '' ) ),
@@ -140,6 +157,12 @@ final class Formular {
 		if ( '' === $w['ort'] ) {
 			$f['ort'] = 'Bitte einen Ort angeben.';
 		}
+		if ( 'breitensport' === $w['kategorie'] && ! isset( self::ARTEN[ $w['art'] ] ) ) {
+			$f['art'] = 'Bitte wählen: Freizeit oder Ambitioniert.';
+		}
+		if ( '' !== $w['bergfaktor'] && ! isset( self::BERGFAKTOR[ $w['bergfaktor'] ] ) ) {
+			$f['bergfaktor'] = 'Bitte einen Bergfaktor aus der Liste wählen.';
+		}
 		foreach ( array( 'infos', 'anmeldung' ) as $feld ) {
 			if ( '' !== trim( (string) ( $_POST[ $feld ] ?? '' ) ) && '' === $w[ $feld ] ) { // phpcs:ignore WordPress.Security.NonceVerification
 				$f[ $feld ] = 'Bitte eine vollständige Adresse mit https:// angeben.';
@@ -170,6 +193,18 @@ final class Formular {
 		return $f;
 	}
 
+	/** Klasse wie im Kalender, z. B. „F | 0-5“; Wettkampf automatisch „W“, sonst leer. */
+	private static function klasse( array $w ): string {
+		$berg = '' !== $w['bergfaktor'] ? $w['bergfaktor'] : '?';
+		switch ( $w['kategorie'] ) {
+			case 'wettkampf':
+				return 'W | ' . $berg;
+			case 'breitensport':
+				return $w['art'] . ' | ' . $berg;
+		}
+		return '';
+	}
+
 	/** @return int|\WP_Error ID des Vorschlags. */
 	private static function speichern( array $w ) {
 		$id = wp_insert_post(
@@ -186,6 +221,7 @@ final class Formular {
 						'_dtrv_zeit_von'  => $w['zeit_von'],
 						'_dtrv_zeit_bis'  => $w['zeit_bis'],
 						'_dtrv_ort'       => $w['ort'],
+						'_dtrv_klasse'    => self::klasse( $w ),
 						'_dtrv_infos'     => $w['infos'],
 						'_dtrv_anmeldung' => $w['anmeldung'],
 						'_dtrv_name'      => $w['name'],
@@ -256,7 +292,7 @@ final class Formular {
 			return '<div id="dtrv-vorschlag" class="dtrv-vorschlag dtrv-vorschlag--danke" role="status"><p><strong>Vielen Dank!</strong> Dein Vorschlag ist bei uns eingegangen. Wir prüfen ihn und tragen ihn dann in den Kalender ein. Sobald er online ist, bekommst du eine kurze E-Mail.</p></div>';
 		}
 
-		$w = self::$werte + array_fill_keys( array( 'titel', 'kategorie', 'von', 'bis', 'zeit_von', 'zeit_bis', 'ort', 'infos', 'anmeldung', 'beschreibung', 'name', 'email' ), '' ) + array( 'datenschutz' => false );
+		$w = self::$werte + array_fill_keys( array( 'titel', 'kategorie', 'von', 'bis', 'zeit_von', 'zeit_bis', 'ort', 'art', 'bergfaktor', 'infos', 'anmeldung', 'beschreibung', 'name', 'email' ), '' ) + array( 'datenschutz' => false );
 		$f = self::$fehler;
 
 		$feld = static function ( string $name, string $label, string $input, bool $pflicht = false, string $hilfe = '' ) use ( $f ): string {
@@ -312,6 +348,21 @@ final class Formular {
 			. $feld( 'zeit_bis', 'Uhrzeit bis', $input( 'zeit_bis', 'time' ) )
 			. '</div>';
 		$html .= $feld( 'ort', 'Ort', $input( 'ort', 'text', true, ' maxlength="150"' ), true, 'z. B. „Worms“ oder „Budel (NL)“' );
+
+		// Klasse: Art nur bei Breitensport (Wettkampf ist automatisch „W“), Bergfaktor bei Wettkampf und Breitensport.
+		$auswahl = static function ( string $name, array $optionen, string $leer ) use ( $w ): string {
+			$html = '<select id="dtrv-f-' . esc_attr( $name ) . '" name="' . esc_attr( $name ) . '"><option value="">' . esc_html( $leer ) . '</option>';
+			foreach ( $optionen as $wert => $label ) {
+				$html .= sprintf( '<option value="%s"%s>%s</option>', esc_attr( $wert ), selected( $w[ $name ], (string) $wert, false ), esc_html( $label ) );
+			}
+			return $html . '</select>';
+		};
+		$klasse_link = esc_url( Settings::einstellungen()['klasse_link'] );
+		$html       .= '<div class="dtrv-vorschlag__reihe">'
+			. '<div data-kategorien="breitensport">' . $feld( 'art', 'Art der Veranstaltung', $auswahl( 'art', self::ARTEN, '– bitte wählen –' ), true, 'nur bei Breitensport' ) . '</div>'
+			. '<div data-kategorien="wettkampf breitensport">' . $feld( 'bergfaktor', 'Bergfaktor', $auswahl( 'bergfaktor', self::BERGFAKTOR, '– weiß ich nicht –' ), false, 'Höhenmeter pro Kilometer, nur bei Wettkampf und Breitensport' ) . '</div>'
+			. '</div>';
+		$html       .= '<p class="dtrv-vorschlag__hilfe" data-kategorien="wettkampf breitensport">Erklärung der Klassen: <a href="' . $klasse_link . '" target="_blank" rel="noopener">Klassifikation von Tretrollerveranstaltungen</a>. Wettkämpfe sind immer „W“.</p>';
 		$html .= $feld( 'infos', 'Link zu weiteren Infos', $input( 'infos', 'url', false, ' placeholder="https://"' ) );
 		$html .= $feld( 'anmeldung', 'Link zur Anmeldung', $input( 'anmeldung', 'url', false, ' placeholder="https://"' ) );
 		$html .= $feld( 'beschreibung', 'Beschreibung', '<textarea id="dtrv-f-beschreibung" name="beschreibung" rows="5" maxlength="3000">' . esc_textarea( $w['beschreibung'] ) . '</textarea>', false, 'Was erwartet die Teilnehmenden? Strecke, Länge, für wen geeignet …' );
@@ -335,6 +386,10 @@ final class Formular {
 		$html .= '<input type="hidden" name="dtrv_vorschlag_formular" value="1">';
 		$html .= '<p><button type="submit" class="dtrv-termin__knopf">Termin vorschlagen</button></p>';
 		$html .= '<p class="dtrv-vorschlag__hilfe">* Pflichtfeld</p>';
+		// Felder je Kategorie ein-/ausblenden (ohne JavaScript bleiben alle sichtbar).
+		$html .= '<script>(function(){var f=document.getElementById("dtrv-vorschlag");if(!f){return;}var k=f.querySelector("[name=kategorie]");'
+			. 'function z(){f.querySelectorAll("[data-kategorien]").forEach(function(e){e.hidden=e.getAttribute("data-kategorien").split(" ").indexOf(k.value)<0;});}'
+			. 'k.addEventListener("change",z);z();})();</script>';
 		return $html . '</form>';
 	}
 }

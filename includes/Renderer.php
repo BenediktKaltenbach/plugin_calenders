@@ -137,11 +137,12 @@ final class Renderer {
 		}
 
 		$aktionen = '';
-		if ( ! empty( $felder['klasse'] ) ) {
+		$klasse   = Format::klasse( $d['kategorie'], $felder['klasse'] ?? '' );
+		if ( '' !== $klasse ) {
 			$aktionen .= sprintf(
 				'<a class="dtrv-termin__klasse" href="%s" target="_blank" rel="noopener" title="Klassifikation von Tretrollerveranstaltungen">%s%s</a>',
 				esc_url( Settings::einstellungen()['klasse_link'] ),
-				esc_html( $felder['klasse'] ),
+				esc_html( $klasse ),
 				self::ICON_KLASSE
 			);
 		}
@@ -195,11 +196,12 @@ final class Renderer {
 			$land            = ! empty( $felder['land'] ) ? '<abbr class="dtrv-termin__land" title="' . esc_attr( $felder['land'] ) . '">' . esc_html( Format::flagge( $felder['land'] ) ) . '</abbr> ' : '';
 			$zeilen['Ort'] = $land . esc_html( $d['ort'] );
 		}
-		if ( ! empty( $felder['klasse'] ) ) {
+		$klasse = Format::klasse( $d['kategorie'], $felder['klasse'] ?? '' );
+		if ( '' !== $klasse ) {
 			$zeilen['Klasse'] = sprintf(
 				'<a class="dtrv-termin__klasse" href="%s" target="_blank" rel="noopener">%s%s</a>',
 				esc_url( Settings::einstellungen()['klasse_link'] ),
-				esc_html( $felder['klasse'] ),
+				esc_html( $klasse ),
 				self::ICON_KLASSE
 			);
 		}

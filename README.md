@@ -48,6 +48,8 @@ Status: vorläufig
 
 Keys are case- and whitespace-insensitive. Unknown keys are ignored and shown as warnings in the admin list. An event cancelled in Google (status "Cancelled") also counts as cancelled. Recurring events (RRULE) and exceptions are expanded. Moving an event to another calendar only changes its category.
 
+**Class** (`Klasse: Art | Bergfaktor`): the letter is the type (F = Freizeit, A = Ambitioniert, W = Wettkampf), the number range is the Bergfaktor, i.e. elevation gain in metres per kilometre. Wettkampf events always show **W**, even if the line only says `Klasse: 0-5`. Breitensport uses F or A. Ausbildung and Verband events never show a class.
+
 ## Blocks and shortcodes
 
 | Block | Shortcode | Purpose |
@@ -73,7 +75,7 @@ Each type is created automatically only **once** per event. A deleted page or po
 
 ## Event suggestions
 
-Anyone can suggest an event via the **DTRV-Terminvorschlag** block: title, category, date range, optional time, location, info and registration links, description, an image (JPG/PNG/WebP, max. 8 MB), name and email, privacy consent.
+Anyone can suggest an event via the **DTRV-Terminvorschlag** block: title, category, date range, optional time, location, class (type F/A for Breitensport, W automatically for Wettkampf; Bergfaktor for both; neither for Ausbildung/Verband), info and registration links, description, an image (JPG/PNG/WebP, max. 8 MB), name and email, privacy consent.
 
 - **Spam protection without reCAPTCHA:** hidden honeypot field, minimum fill-in time of 5 seconds, at most 5 suggestions per IP per hour.
 - **Email** to the configured address with all details and **approve** / **reject** links. The links open a confirmation page with a button first, so email security scanners cannot trigger them. No WordPress login is needed.

@@ -32,6 +32,14 @@ pruefe( 'über Jahresgrenze', Format::zeitraum( $ts( '2026-12-31' ), $ts( '2027-
 pruefe( 'mit Uhrzeit', Format::zeitraum( $ts( '2027-05-23 10:00' ), $ts( '2027-05-23 14:00' ), false ), '23.5.2027, 10:00–14:00 Uhr' );
 pruefe( 'Flagge', Format::flagge( 'NL' ), "\u{1F1F3}\u{1F1F1}" );
 
+// Klasse je Kategorie.
+pruefe( 'Klasse Wettkampf ohne Art', Format::klasse( 'wettkampf', '0-5' ), 'W | 0-5' );
+pruefe( 'Klasse Wettkampf erzwingt W', Format::klasse( 'wettkampf', 'F | 5-10' ), 'W | 5-10' );
+pruefe( 'Klasse Breitensport', Format::klasse( 'breitensport', 'a | 10-15' ), 'A | 10-15' );
+pruefe( 'Klasse Breitensport nur Art', Format::klasse( 'breitensport', 'F' ), 'F | ?' );
+pruefe( 'Klasse Ausbildung leer', Format::klasse( 'ausbildung', 'F | 0-5' ), '' );
+pruefe( 'Klasse fehlt', Format::klasse( 'wettkampf', '' ), '' );
+
 // Beschreibung.
 $b = Parser::beschreibung( "Freier Text\n\n---\nAnmeldung: https://my.raceresult.com/392357/\n STATUS : abgesagt\nLand: CZ\nFoo: bar" );
 pruefe( 'Text', $b['text'], 'Freier Text' );
@@ -95,6 +103,8 @@ $v = array_merge( $v, array( 'bis' => '', 'zeit_von' => '10:00', 'zeit_bis' => '
 parse_str( (string) parse_url( Vorschlaege::google_url( $v, 'T', 'https://dtrv.net/b.jpg' ), PHP_URL_QUERY ), $q );
 pruefe( 'Google mit Uhrzeit', array( $q['dates'], $q['ctz'] ), array( '20270402T100000/20270402T120000', 'Europe/Berlin' ) );
 pruefe( 'Google Bild im Text', $q['details'], "Tour\n\nBild vom Einreicher: https://dtrv.net/b.jpg" );
+parse_str( (string) parse_url( Vorschlaege::google_url( array_merge( $v, array( 'klasse' => 'F | 0-5' ) ), 'T' ), PHP_URL_QUERY ), $q );
+pruefe( 'Google Klasse als Schlüsselzeile', $q['details'], "Tour\n\n---\nKlasse: F | 0-5" );
 
 echo $fehler ? "\n$fehler Fehler\n" : "\nAlles ok\n";
 exit( $fehler ? 1 : 0 );

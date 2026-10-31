@@ -62,6 +62,7 @@ final class Vorschlaege {
 			'zeit_von'     => $m( 'zeit_von' ),
 			'zeit_bis'     => $m( 'zeit_bis' ),
 			'ort'          => $m( 'ort' ),
+			'klasse'       => $m( 'klasse' ),
 			'infos'        => $m( 'infos' ),
 			'anmeldung'    => $m( 'anmeldung' ),
 			'name'         => $m( 'name' ),
@@ -118,6 +119,9 @@ final class Vorschlaege {
 		$zeilen = array();
 		if ( '' !== $d['infos'] ) {
 			$zeilen[] = 'Infos: ' . $d['infos'];
+		}
+		if ( '' !== ( $d['klasse'] ?? '' ) ) {
+			$zeilen[] = 'Klasse: ' . $d['klasse'];
 		}
 		if ( '' !== $d['anmeldung'] ) {
 			$zeilen[] = 'Anmeldung: ' . $d['anmeldung'];
@@ -190,6 +194,9 @@ final class Vorschlaege {
 			'Datum:      ' . self::datum_text( $d ),
 			'Ort:        ' . $d['ort'],
 		);
+		if ( $d['klasse'] ) {
+			$zeilen[] = 'Klasse:     ' . $d['klasse'] . ' (Art | Höhenmeter pro km)';
+		}
 		if ( $d['infos'] ) {
 			$zeilen[] = 'Infos:      ' . $d['infos'];
 		}
@@ -312,6 +319,9 @@ final class Vorschlaege {
 			'Datum'     => esc_html( self::datum_text( $d ) ),
 			'Ort'       => esc_html( $d['ort'] ),
 		);
+		if ( $d['klasse'] ) {
+			$zeilen['Klasse'] = esc_html( $d['klasse'] );
+		}
 		foreach ( array( 'infos' => 'Infos', 'anmeldung' => 'Anmeldung' ) as $feld => $label ) {
 			if ( $d[ $feld ] ) {
 				$zeilen[ $label ] = '<a href="' . esc_url( $d[ $feld ] ) . '" target="_blank" rel="noopener">' . esc_html( $d[ $feld ] ) . '</a>';

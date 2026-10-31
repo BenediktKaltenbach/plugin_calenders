@@ -48,6 +48,33 @@ final class Format {
 	}
 
 	/**
+	 * Klasse je Kategorie vereinheitlichen (Art | Bergfaktor = Höhenmeter pro km):
+	 * Wettkampf immer „W“, Breitensport „F“ oder „A“, Ausbildung/Verband ohne Klasse.
+	 * Beispiele: („wettkampf“, „0-5“) → „W | 0-5“, („ausbildung“, „F | 0-5“) → „“.
+	 */
+	public static function klasse( string $kategorie, string $wert ): string {
+		$wert = trim( $wert );
+		if ( '' === $wert || ! in_array( $kategorie, array( 'wettkampf', 'breitensport' ), true ) ) {
+			return '';
+		}
+		$teile = array_map( 'trim', explode( '|', $wert ) );
+		if ( count( $teile ) >= 2 ) {
+			$art  = strtoupper( $teile[0] );
+			$berg = '' !== $teile[1] ? $teile[1] : '?';
+		} elseif ( preg_match( '/^[AFW]$/i', $teile[0] ) ) {
+			$art  = strtoupper( $teile[0] );
+			$berg = '?';
+		} else {
+			$art  = '';
+			$berg = $teile[0];
+		}
+		if ( 'wettkampf' === $kategorie ) {
+			$art = 'W';
+		}
+		return '' !== $art ? $art . ' | ' . $berg : $berg;
+	}
+
+	/**
 	 * Flaggen-Emoji aus einem ISO-Ländercode („NL“ → 🇳🇱).
 	 */
 	public static function flagge( string $land ): string {

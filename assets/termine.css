@@ -291,3 +291,7 @@
 .dtrv-infobox.is-entfernt p {
 	margin: 0;
 }
+
+.dtrv-vorschlag [hidden] {
+	display: none !important;
+}
