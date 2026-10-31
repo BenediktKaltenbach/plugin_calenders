@@ -17,7 +17,7 @@ final class Settings {
 		return array(
 			'ical'            => (array) ( $werte['ical'] ?? array() ),
 			'klasse_link'     => ! empty( $werte['klasse_link'] ) ? $werte['klasse_link'] : home_url( '/klassifikation-von-tretrollerveranstaltungen/' ),
-			'vorschlag_email' => ! empty( $werte['vorschlag_email'] ) ? $werte['vorschlag_email'] : 'vorstand@dtrv.net',
+			'vorschlag_email' => ! empty( $werte['vorschlag_email'] ) ? $werte['vorschlag_email'] : (string) get_option( 'admin_email' ),
 		);
 	}
 
@@ -132,7 +132,7 @@ final class Settings {
 						<td><input type="text" class="regular-text" id="dtrv-vorschlag-email"
 							name="<?php echo esc_attr( self::OPTION ); ?>[vorschlag_email]"
 							value="<?php echo esc_attr( $e['vorschlag_email'] ); ?>">
-							<p class="description">Jeder neue Vorschlag aus dem Block „DTRV-Terminvorschlag“ geht mit Freigabe-Link an diese Adresse. Mehrere Adressen durch Komma trennen.</p></td>
+							<p class="description">Jeder neue Vorschlag aus dem Block „DTRV-Terminvorschlag“ geht mit Freigabe-Link an diese Adresse. Mehrere Adressen durch Komma trennen. Ohne Eintrag geht die Mail an die Admin-E-Mail von WordPress.</p></td>
 					</tr>
 				</table>
 				<?php submit_button( 'Speichern' ); ?>
