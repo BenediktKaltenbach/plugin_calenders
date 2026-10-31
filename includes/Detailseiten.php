@@ -24,17 +24,66 @@ final class Detailseiten {
 		'beitrag' => 'Beitrag',
 	);
 
-	private const SCHEMA = 2;
+	private const SCHEMA = 3;
 
 	public static function admin(): void {
 		add_action( 'admin_post_dtrv_detail_anlegen', array( self::class, 'anlegen_knopf' ) );
 	}
 
-	/** Übernimmt Verknüpfungen aus 0.3.x (ein gemeinsames Feld für Seite oder Beitrag). */
+	/** Einmalige Anpassungen gespeicherter Daten nach Updates. */
 	public static function migrieren(): void {
-		if ( (int) get_option( 'dtrv_termine_schema', 0 ) >= self::SCHEMA ) {
+		$stand = (int) get_option( 'dtrv_termine_schema', 0 );
+		if ( $stand >= self::SCHEMA ) {
 			return;
 		}
+		if ( $stand < 2 ) {
+			self::migrieren_verknuepfungen();
+		}
+		if ( $stand < 3 ) {
+			self::migrieren_infobox_oben();
+		}
+		update_option( 'dtrv_termine_schema', self::SCHEMA, false );
+	}
+
+	/**
+	 * 0.6: Infobox nach oben. Nur wenn sie noch unverändert als letzter Block steht –
+	 * von Hand umgebaute Seiten bleiben, wie sie sind.
+	 */
+	private static function migrieren_infobox_oben(): void {
+		$termine = get_posts(
+			array(
+				'post_type'      => PostType::NAME,
+				'post_status'    => 'any',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+			)
+		);
+		foreach ( $termine as $termin_id ) {
+			$block = self::infobox_block( $termin_id );
+			foreach ( array_keys( self::ARTEN ) as $art ) {
+				$post = get_post( self::id( $termin_id, $art ) );
+				if ( ! $post ) {
+					continue;
+				}
+				$inhalt = trim( $post->post_content );
+				if ( $inhalt === $block || ! str_ends_with( $inhalt, $block ) ) {
+					continue;
+				}
+				$rest = trim( substr( $inhalt, 0, -strlen( $block ) ) );
+				wp_update_post(
+					wp_slash(
+						array(
+							'ID'           => $post->ID,
+							'post_content' => $block . "\n\n" . $rest,
+						)
+					)
+				);
+			}
+		}
+	}
+
+	/** 0.4: Verknüpfungen aus 0.3.x (ein gemeinsames Feld für Seite oder Beitrag) aufteilen. */
+	private static function migrieren_verknuepfungen(): void {
 		$ids = get_posts(
 			array(
 				'post_type'      => PostType::NAME,
@@ -65,7 +114,6 @@ final class Detailseiten {
 			delete_post_meta( $id, '_dtrv_detail_post' );
 			delete_post_meta( $id, '_dtrv_detail_auto' );
 		}
-		update_option( 'dtrv_termine_schema', self::SCHEMA, false );
 	}
 
 	/** @return array{seite: bool, beitrag: bool} */
@@ -118,13 +166,13 @@ final class Detailseiten {
 		$d = PostType::daten( $termin_id );
 		$e = Settings::einstellungen();
 
-		$inhalt = '';
+		// Datum und Ort oben (Infobox), darunter die Beschreibung.
+		$inhalt = self::infobox_block( $termin_id );
 		foreach ( preg_split( '/\n\s*\n/', trim( $termin->post_content ) ) as $absatz ) {
 			if ( '' !== trim( $absatz ) ) {
-				$inhalt .= "<!-- wp:paragraph -->\n<p>" . nl2br( esc_html( trim( $absatz ) ) ) . "</p>\n<!-- /wp:paragraph -->\n\n";
+				$inhalt .= "\n\n<!-- wp:paragraph -->\n<p>" . nl2br( esc_html( trim( $absatz ) ) ) . "</p>\n<!-- /wp:paragraph -->";
 			}
 		}
-		$inhalt .= '<!-- wp:dtrv/infobox {"terminId":' . $termin_id . '} /-->';
 
 		$daten = array(
 			'post_type'    => 'seite' === $art ? 'page' : 'post',
@@ -154,6 +202,10 @@ final class Detailseiten {
 		}
 		update_post_meta( $termin_id, '_dtrv_' . $art, $neu );
 		return $neu;
+	}
+
+	private static function infobox_block( int $termin_id ): string {
+		return '<!-- wp:dtrv/infobox {"terminId":' . $termin_id . '} /-->';
 	}
 
 	/** Autor für automatisch angelegte Seiten/Beiträge: der erste Administrator. */

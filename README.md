@@ -72,7 +72,7 @@ The button accent colour can be changed in the theme: `.dtrv-termine, .dtrv-info
   The post's infobox has an "Alle Infos" button linking to the page.
 - The `Detail:` line controls this per event: `keine` gives neither page nor post, `Seite` only the page, `Beitrag` both.
 
-Each type is created automatically only **once** per event. A deleted page or post is never recreated automatically, but can be recreated via the row actions. The content is the event description plus a **Termin-Infobox** block. The category's default image becomes the featured image, and posts get the configured post category. If the event is removed from Google, the infobox says so.
+Each type is created automatically only **once** per event. A deleted page or post is never recreated automatically, but can be recreated via the row actions. The content starts with a **Termin-Infobox** block (date, location, class, register button), followed by the event description. Pages created before 0.6.0 get the infobox moved to the top once, unless they were rearranged by hand. The category's default image becomes the featured image, and posts get the configured post category. If the event is removed from Google, the infobox says so.
 
 ## Featured images from the calendar
 
