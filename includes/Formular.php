@@ -98,6 +98,9 @@ final class Formular {
 		self::$fehler = self::pruefen( self::$werte );
 		if ( $zeit > self::HOECHSTALTER ) {
 			self::$fehler['_'] = 'Das Formular war zu lange geöffnet. Bitte noch einmal absenden.';
+			// Neuer Zeitstempel, der die Mindestzeit schon erfüllt – sonst würde das sofortige
+			// erneute Absenden als Spam verworfen (Tabs bleiben auf iPhones tagelang offen).
+			self::$token = self::zeitstempel( time() - self::MINDESTZEIT );
 		} else {
 			// Nach einem Fehler nicht erneut 5 Sekunden Mindestzeit verlangen.
 			self::$token = (string) wp_unslash( $_POST['dtrv_t'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification
@@ -109,8 +112,17 @@ final class Formular {
 			return;
 		}
 
+		// Jedes Formular nur einmal: Doppeltippen oder „Zurück“ + erneut Absenden legt keinen
+		// zweiten Vorschlag an.
+		$einmal = 'dtrv_t_' . md5( (string) wp_unslash( $_POST['dtrv_t'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		if ( ! Plugin::einmalig( $einmal, (string) time() ) ) {
+			wp_safe_redirect( $danke );
+			exit;
+		}
+
 		$id = self::speichern( self::$werte );
 		if ( is_wp_error( $id ) ) {
+			delete_option( $einmal );
 			self::$fehler['bild'] = $id->get_error_message();
 			return;
 		}
@@ -172,12 +184,11 @@ final class Formular {
 		}
 		if ( '' !== $w['zeit_bis'] && ( ! $uhr( $w['zeit_bis'] ) || '' === $w['zeit_von'] ) ) {
 			$f['zeit_bis'] = 'Eine Endzeit geht nur zusammen mit einer Startzeit.';
+		} elseif ( '' !== $w['zeit_bis'] && ( '' === $w['bis'] || $w['bis'] === $w['von'] ) && $w['zeit_bis'] <= $w['zeit_von'] ) {
+			$f['zeit_bis'] = 'Die Endzeit muss nach der Startzeit liegen.';
 		}
 		if ( '' === $w['ort'] ) {
 			$f['ort'] = 'Bitte einen Ort angeben.';
-		}
-		if ( '' !== $w['karte'] && null === Geo::lesen_mit_kurzlink( $w['karte'] ) ) {
-			$f['karte'] = 'Link oder Koordinaten nicht lesbar. Bitte einen Link aus Google Maps oder OpenStreetMap einfügen.';
 		}
 		if ( 'breitensport' === $w['kategorie'] && ! isset( self::ARTEN[ $w['art'] ] ) ) {
 			$f['art'] = 'Bitte wählen: Freizeit oder Ambitioniert.';
@@ -266,6 +277,7 @@ final class Formular {
 						'_dtrv_zeit_bis'  => $w['zeit_bis'],
 						'_dtrv_ort'       => $w['ort'],
 						'_dtrv_geo'       => self::geo( $w ),
+						'_dtrv_karte'     => esc_url_raw( (string) ( preg_match( '#https?://\S+#i', $w['karte'], $m ) ? $m[0] : '' ) ),
 						'_dtrv_klasse'    => self::klasse( $w ),
 						'_dtrv_infos'     => $w['infos'],
 						'_dtrv_anmeldung' => $w['anmeldung'],
@@ -316,8 +328,8 @@ final class Formular {
 		return $anzahl;
 	}
 
-	private static function zeitstempel(): string {
-		$t = (string) time();
+	private static function zeitstempel( int $zeit = 0 ): string {
+		$t = (string) ( $zeit ? $zeit : time() );
 		return $t . '.' . hash_hmac( 'sha256', $t, wp_salt( 'nonce' ) );
 	}
 
@@ -451,11 +463,16 @@ final class Formular {
 		$html .= '<script>(function(){var f=document.getElementById("dtrv-vorschlag");if(!f){return;}var k=f.querySelector("[name=kategorie]");'
 			. 'function z(){f.querySelectorAll("[data-kategorien]").forEach(function(e){e.hidden=e.getAttribute("data-kategorien").split(" ").indexOf(k.value)<0;});}'
 			. 'k.addEventListener("change",z);z();'
+			// Doppeltes Absenden verhindern; nach „Zurück“ (bfcache) Knopf und Felder wiederherstellen.
+			. 'var fo=f.querySelector("form"),sb=fo&&fo.querySelector("button[type=submit]");'
+			. 'if(fo&&sb){fo.addEventListener("submit",function(){setTimeout(function(){sb.disabled=true;sb.textContent="Wird gesendet …";},0);});}'
+			. 'window.addEventListener("pageshow",function(){if(sb){sb.disabled=false;sb.textContent="Termin vorschlagen";}z();});'
 			// Ort suchen: Treffer von OpenStreetMap zur Auswahl (keine Suche beim Tippen, Nominatim-Regeln).
 			. 'var s=f.querySelector(".dtrv-vorschlag__suchen"),t=f.querySelector(".dtrv-vorschlag__treffer"),o=f.querySelector("[name=ort]"),la=f.querySelector("[name=lat]"),ln=f.querySelector("[name=lng]");'
 			. 'if(s&&window.fetch){s.hidden=false;o.addEventListener("input",function(){la.value="";ln.value="";});'
 			. 's.addEventListener("click",function(){if(o.value.trim().length<3){return;}t.textContent="Suche …";'
-			. 'fetch(' . wp_json_encode( rest_url( 'dtrv-termine/v1/orte' ) ) . '+"?q="+encodeURIComponent(o.value)).then(function(r){return r.json();}).then(function(l){t.textContent="";'
+			. 'var ou=' . wp_json_encode( rest_url( 'dtrv-termine/v1/orte' ) ) . ';'
+			. 'fetch(ou+(ou.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(o.value)).then(function(r){return r.json();}).then(function(l){t.textContent="";'
 			. 'if(!Array.isArray(l)||!l.length){t.textContent=l&&l.message?l.message:"Nichts gefunden – bitte genauer angeben, z. B. mit Land.";return;}'
 			. 'l.forEach(function(x){var lb=document.createElement("label"),r=document.createElement("input");r.type="radio";r.name="dtrv_treffer";'
 			. 'r.addEventListener("change",function(){la.value=x.lat;ln.value=x.lng;});lb.appendChild(r);lb.appendChild(document.createTextNode(" "+x.name));t.appendChild(lb);});'

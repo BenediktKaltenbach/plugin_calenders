@@ -63,6 +63,7 @@ final class Vorschlaege {
 			'zeit_bis'     => $m( 'zeit_bis' ),
 			'ort'          => $m( 'ort' ),
 			'klasse'       => $m( 'klasse' ),
+			'karte'        => $m( 'karte' ),
 			'geo'          => is_array( get_post_meta( $id, '_dtrv_geo', true ) ) ? get_post_meta( $id, '_dtrv_geo', true ) : null,
 			'infos'        => $m( 'infos' ),
 			'anmeldung'    => $m( 'anmeldung' ),
@@ -152,7 +153,7 @@ final class Vorschlaege {
 	public static function google_link( int $id ): string {
 		$d    = self::daten( $id );
 		$bild = $d['bild'] ? (string) wp_get_attachment_url( $d['bild'] ) : '';
-		return self::google_url( $d, get_the_title( $id ), $bild );
+		return self::google_url( $d, get_post_field( 'post_title', $id ), $bild );
 	}
 
 	/** Freigabe-Link für die Mail (geheimer Token je Vorschlag, keine Anmeldung nötig). */
@@ -183,14 +184,17 @@ final class Vorschlaege {
 		}
 		// Dankes-Mail nur einmal, auch bei Doppelklick oder zwei Vorständen gleichzeitig.
 		if ( 'eingetragen' === $status && add_post_meta( $id, '_dtrv_dank_gesendet', time(), true ) ) {
-			self::dankes_mail( $id );
-			delete_post_meta( $id, '_dtrv_email' );
+			if ( self::dankes_mail( $id ) ) {
+				delete_post_meta( $id, '_dtrv_email' );
+			} else {
+				delete_post_meta( $id, '_dtrv_dank_gesendet' ); // erneut versuchbar
+			}
 		}
 	}
 
 	public static function mail_neu( int $id ): void {
 		$d     = self::daten( $id );
-		$titel = get_the_title( $id );
+		$titel = get_post_field( 'post_title', $id );
 		$zeilen = array(
 			'Neuer Terminvorschlag über ' . wp_parse_url( home_url(), PHP_URL_HOST ),
 			'',
@@ -204,6 +208,9 @@ final class Vorschlaege {
 		}
 		if ( $d['geo'] ) {
 			$zeilen[] = 'Karte:      ' . Geo::osm_link( $d['geo']['lat'], $d['geo']['lng'] );
+		}
+		if ( $d['karte'] ) {
+			$zeilen[] = 'Kartenlink: ' . $d['karte'];
 		}
 		if ( $d['infos'] ) {
 			$zeilen[] = 'Infos:      ' . $d['infos'];
@@ -258,19 +265,20 @@ final class Vorschlaege {
 		return '' !== $fehler ? $fehler : 'wp_mail() meldet einen Fehler.';
 	}
 
-	private static function dankes_mail( int $id ): void {
+	/** @return bool true, wenn versendet oder keine Adresse vorhanden ist. */
+	private static function dankes_mail( int $id ): bool {
 		$d = self::daten( $id );
 		if ( ! is_email( $d['email'] ) ) {
-			return;
+			return true;
 		}
 		$text = sprintf(
 			"Hallo %s,\n\nvielen Dank für deinen Terminvorschlag „%s“ (%s). Er ist jetzt im Kalender des Deutschen Tretroller Verbands eingetragen und erscheint in Kürze auf %s.\n\nSportliche Grüße\nDeutscher Tretroller Verband e.V.",
 			$d['name'],
-			get_the_title( $id ),
+			get_post_field( 'post_title', $id ),
 			self::datum_text( $d ),
 			home_url( '/' )
 		);
-		self::senden( $d['email'], 'Dein Terminvorschlag ist eingetragen', $text );
+		return 'ok' === self::senden( $d['email'], 'Dein Terminvorschlag ist eingetragen', $text );
 	}
 
 	/**
@@ -294,7 +302,7 @@ final class Vorschlaege {
 			wp_die( 'Dieser Link ist ungültig.', 'Terminvorschlag', array( 'response' => 403 ) );
 		}
 
-		$titel = esc_html( get_the_title( $id ) );
+		$titel = esc_html( get_post_field( 'post_title', $id ) );
 		$d     = self::daten( $id );
 
 		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
@@ -322,7 +330,7 @@ final class Vorschlaege {
 	public static function zusammenfassung( int $id, bool $kontakt = false ): string {
 		$d      = self::daten( $id );
 		$zeilen = array(
-			'Titel'     => esc_html( get_the_title( $id ) ),
+			'Titel'     => esc_html( get_post_field( 'post_title', $id ) ),
 			'Kategorie' => esc_html( Plugin::kategorien()[ $d['kategorie'] ] ?? $d['kategorie'] ),
 			'Datum'     => esc_html( self::datum_text( $d ) ),
 			'Ort'       => esc_html( $d['ort'] ),
@@ -334,6 +342,9 @@ final class Vorschlaege {
 			$zeilen['Karte'] = '<a href="' . esc_url( Geo::osm_link( $d['geo']['lat'], $d['geo']['lng'] ) ) . '" target="_blank" rel="noopener">' . esc_html( $d['geo']['lat'] . ', ' . $d['geo']['lng'] ) . '</a>';
 		} else {
 			$zeilen['Karte'] = 'keine Koordinaten – beim Eintragen wird der Ort automatisch gesucht';
+		}
+		if ( $d['karte'] ) {
+			$zeilen['Kartenlink'] = '<a href="' . esc_url( $d['karte'] ) . '" target="_blank" rel="noopener">' . esc_html( $d['karte'] ) . '</a>';
 		}
 		foreach ( array( 'infos' => 'Infos', 'anmeldung' => 'Anmeldung' ) as $feld => $label ) {
 			if ( $d[ $feld ] ) {

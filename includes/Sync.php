@@ -38,6 +38,11 @@ final class Sync {
 		}
 		// Gleich am Anfang setzen, damit WP-Cron nicht parallel startet.
 		update_option( self::OPTION_LETZTER, time(), false );
+		// Bilder und Ortssuche können dauern; Abbruch des Browsers soll den Lauf nicht stoppen.
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 300 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+		}
+		ignore_user_abort( true );
 
 		$status = array();
 		try {
@@ -67,15 +72,26 @@ final class Sync {
 	 * Eine Sperre älter als 15 Minuten gilt als hängengeblieben.
 	 */
 	private static function sperren(): bool {
-		if ( add_option( self::SPERRE, time(), '', false ) ) {
+		global $wpdb;
+		$jetzt = (string) time();
+		if ( Plugin::einmalig( self::SPERRE, $jetzt ) ) {
 			return true;
 		}
-		wp_cache_delete( self::SPERRE, 'options' );
-		if ( time() - (int) get_option( self::SPERRE, 0 ) < 15 * MINUTE_IN_SECONDS ) {
+		$alt = (string) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::SPERRE ) );
+		if ( time() - (int) $alt < 15 * MINUTE_IN_SECONDS ) {
 			return false;
 		}
-		delete_option( self::SPERRE );
-		return add_option( self::SPERRE, time(), '', false );
+		// Hängengebliebene Sperre übernehmen – nur wenn sie noch dieselbe ist (Compare-and-Swap).
+		$ok = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+				$jetzt,
+				self::SPERRE,
+				$alt
+			)
+		);
+		wp_cache_delete( self::SPERRE, 'options' );
+		return 1 === $ok;
 	}
 
 	private static function kategorie( string $slug, string $url ): array {
@@ -98,7 +114,7 @@ final class Sync {
 		try {
 			$feed = Feed::lesen(
 				wp_remote_retrieve_body( $antwort ),
-				new \DateTimeImmutable( '-1 year', $tz ),
+				$fenster_start = new \DateTimeImmutable( '-1 year', $tz ),
 				new \DateTimeImmutable( '+3 years', $tz )
 			);
 		} catch ( \Throwable $e ) {
@@ -161,9 +177,11 @@ final class Sync {
 		}
 
 		// Im Kalender gelöschte Termine nur markieren (Detailseiten verweisen evtl. darauf).
+		// Termine, die älter als das Abruf-Fenster sind, fehlen im Feed nur deshalb – sie bleiben.
 		$weg = array();
 		foreach ( self::$index as $schluessel => $eintrag ) {
-			if ( $eintrag['kategorie'] === $slug && ! isset( $gesehen[ $schluessel ] ) ) {
+			if ( $eintrag['kategorie'] === $slug && ! isset( $gesehen[ $schluessel ] )
+				&& (int) get_post_meta( $eintrag['id'], '_dtrv_ende', true ) >= $fenster_start->getTimestamp() ) {
 				$weg[] = $eintrag['id'];
 			}
 		}

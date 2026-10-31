@@ -33,7 +33,7 @@ final class Geo {
 		$muster = array(
 			'/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/',                       // Google: Ort im Pfad
 			'/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/',                           // Google: Kartenmitte
-			'/[?&](?:q|query|ll|center|destination)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/', // Google: Parameter
+			'/[?&](?:q|query|ll|sll|center|destination|coordinate)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/', // Google/Apple: Parameter
 			'/[?&]mlat=(-?\d{1,2}\.\d+)&mlon=(-?\d{1,3}\.\d+)/',              // OSM: Marker
 			'/#map=\d+\/(-?\d{1,2}\.\d+)\/(-?\d{1,3}\.\d+)/',                // OSM: Kartenausschnitt
 			'/^(-?\d{1,2}\.\d+)\s*[,; ]\s*(-?\d{1,3}\.\d+)$/',                // „50.7151, 7.1393“
@@ -53,20 +53,38 @@ final class Geo {
 		return null;
 	}
 
-	/** Kurzlinks (maps.app.goo.gl, goo.gl/maps) einmal auflösen, dann lesen. */
+	/**
+	 * Wie lesen(), versteht aber auch kopierten Teilen-Text („Name, Adresse https://…“)
+	 * und löst Kurzlinks von Google Maps und Apple Karten einmal auf.
+	 */
 	public static function lesen_mit_kurzlink( string $text ): ?array {
 		$geo = self::lesen( $text );
-		if ( $geo || ! preg_match( '#^https://(maps\.app\.goo\.gl|goo\.gl/maps)/#i', trim( $text ) ) ) {
+		if ( $geo ) {
 			return $geo;
 		}
-		$cache = 'dtrv_geo_link_' . md5( $text );
+		if ( ! preg_match( '#https?://\S+#i', $text, $m ) ) {
+			return null;
+		}
+		$url = rtrim( $m[0], '.,;)' );
+		$geo = self::lesen( $url );
+		if ( $geo || ! preg_match( '#^https://(maps\.app\.goo\.gl|goo\.gl/maps|maps\.apple(\.com)?/p)/#i', $url ) ) {
+			return $geo;
+		}
+		$cache = 'dtrv_geo_link_' . md5( $url );
 		$ziel  = get_transient( $cache );
 		if ( false === $ziel ) {
-			$antwort = wp_remote_head( trim( $text ), array( 'redirection' => 0, 'timeout' => 10 ) );
+			$antwort = wp_remote_head( $url, array( 'redirection' => 0, 'timeout' => 10 ) );
 			$ziel    = is_wp_error( $antwort ) ? '' : (string) wp_remote_retrieve_header( $antwort, 'location' );
-			set_transient( $cache, $ziel, self::CACHE_TAGE * DAY_IN_SECONDS );
+			// Fehlschläge nur kurz merken, damit ein späterer Versuch klappen kann.
+			set_transient( $cache, $ziel, '' !== $ziel ? self::CACHE_TAGE * DAY_IN_SECONDS : HOUR_IN_SECONDS );
 		}
 		return '' !== $ziel ? self::lesen( $ziel ) : null;
+	}
+
+	/** Liegt die Suche schon im Zwischenspeicher? (zählt dann nicht gegen das Limit) */
+	private static function im_cache( string $suche, int $anzahl ): bool {
+		$suche = trim( preg_replace( '/\s+/', ' ', $suche ) );
+		return is_array( get_transient( 'dtrv_geo_' . md5( mb_strtolower( $suche ) . '|' . $anzahl ) ) );
 	}
 
 	/**
@@ -164,10 +182,12 @@ final class Geo {
 		if ( is_array( $alt ) && 'osm' === ( $alt['quelle'] ?? '' ) && ( $alt['suche'] ?? '' ) === $ort ) {
 			return;
 		}
-		if ( self::$anfragen >= self::MAX_JE_ABGLEICH ) {
-			return;
+		if ( ! self::im_cache( $ort, 1 ) ) {
+			if ( self::$anfragen >= self::MAX_JE_ABGLEICH ) {
+				return;
+			}
+			++self::$anfragen;
 		}
-		++self::$anfragen;
 		$treffer = self::suchen( $ort, 1 );
 		if ( is_wp_error( $treffer ) ) {
 			return;

@@ -22,6 +22,8 @@ final class Settings {
 			'vorschlag_email'   => ! empty( $werte['vorschlag_email'] ) ? $werte['vorschlag_email'] : (string) get_option( 'admin_email' ),
 			'beitrag'           => (array) ( $werte['beitrag'] ?? array() ),
 			'seite_eltern'      => (int) ( $werte['seite_eltern'] ?? 0 ),
+			// Auf der Tretrollerkarte: standardmäßig alle Kategorien.
+			'karte'             => array_merge( array_fill_keys( array_keys( Plugin::kategorien() ), true ), (array) ( $werte['karte'] ?? array() ) ),
 			'beitragskategorie' => (array) ( $werte['beitragskategorie'] ?? array() ),
 			'standardbild'      => (array) ( $werte['standardbild'] ?? array() ),
 		);
@@ -117,8 +119,10 @@ final class Settings {
 			add_settings_error( self::OPTION, 'vorschlag-email', 'Mindestens eine E-Mail-Adresse für Vorschläge war ungültig und wurde entfernt.' );
 		}
 		$sauber['vorschlag_email'] = implode( ', ', $adressen );
+		$sauber['seite_eltern']    = absint( $eingabe['seite_eltern'] ?? 0 );
 		foreach ( array_keys( Plugin::kategorien() ) as $slug ) {
 			$sauber['beitrag'][ $slug ]           = ! empty( $eingabe['beitrag'][ $slug ] );
+			$sauber['karte'][ $slug ]             = ! empty( $eingabe['karte'][ $slug ] );
 			$sauber['beitragskategorie'][ $slug ] = absint( $eingabe['beitragskategorie'][ $slug ] ?? 0 );
 			$sauber['standardbild'][ $slug ]      = absint( $eingabe['standardbild'][ $slug ] ?? 0 );
 		}
@@ -139,8 +143,8 @@ final class Settings {
 			wp_die( 'Keine Berechtigung.' );
 		}
 		check_admin_referer( 'dtrv_termine_abgleich' );
-		Sync::alle();
-		wp_safe_redirect( add_query_arg( 'abgeglichen', 1, admin_url( 'edit.php?post_type=' . PostType::NAME . '&page=' . self::SEITE ) ) );
+		$status = Sync::alle();
+		wp_safe_redirect( add_query_arg( 'abgeglichen', isset( $status['_'] ) ? 'laeuft' : '1', admin_url( 'edit.php?post_type=' . PostType::NAME . '&page=' . self::SEITE ) ) );
 		exit;
 	}
 
@@ -152,7 +156,11 @@ final class Settings {
 		<div class="wrap">
 			<h1>DTRV-Termine – Einstellungen</h1>
 			<?php if ( isset( $_GET['abgeglichen'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification ?>
-				<div class="notice notice-success is-dismissible"><p>Abgleich ausgeführt.</p></div>
+				<?php if ( 'laeuft' === $_GET['abgeglichen'] ) : // phpcs:ignore WordPress.Security.NonceVerification ?>
+					<div class="notice notice-warning is-dismissible"><p>Es läuft bereits ein Abgleich (Cronjob). Bitte in ein bis zwei Minuten neu laden.</p></div>
+				<?php else : ?>
+					<div class="notice notice-success is-dismissible"><p>Abgleich ausgeführt.</p></div>
+				<?php endif; ?>
 			<?php endif; ?>
 
 			<form method="post" action="options.php">
@@ -200,13 +208,14 @@ final class Settings {
 					</tr>
 				</table>
 				<table class="widefat striped" style="max-width:60rem">
-					<thead><tr><th>Kategorie</th><th>Beitrag automatisch (Entwurf)</th><th>Beitragskategorie</th><th>Standardbild (Beitragsbild)</th></tr></thead>
+					<thead><tr><th>Kategorie</th><th>Beitrag automatisch (Entwurf)</th><th>Auf der Tretrollerkarte</th><th>Beitragskategorie</th><th>Standardbild (Beitragsbild)</th></tr></thead>
 					<tbody>
 					<?php foreach ( Plugin::kategorien() as $slug => $label ) : ?>
 						<?php $bild = (int) ( $e['standardbild'][ $slug ] ?? 0 ); ?>
 						<tr>
 							<td><?php echo esc_html( $label ); ?></td>
 							<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[beitrag][<?php echo esc_attr( $slug ); ?>]" value="1" <?php checked( ! empty( $e['beitrag'][ $slug ] ) ); ?>> ja</label></td>
+							<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[karte][<?php echo esc_attr( $slug ); ?>]" value="1" <?php checked( ! empty( $e['karte'][ $slug ] ) ); ?>> zeigen</label></td>
 							<td>
 							<?php
 							wp_dropdown_categories(

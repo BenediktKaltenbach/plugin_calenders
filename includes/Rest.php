@@ -71,24 +71,34 @@ final class Rest {
 	}
 
 	public static function termine(): \WP_REST_Response {
+		// Ab 60 Tagen zurück, damit kommende Termine nie hinter alten abgeschnitten werden.
 		$ids = get_posts(
 			array(
 				'post_type'      => PostType::NAME,
 				'post_status'    => 'publish',
-				'posts_per_page' => 300,
+				'posts_per_page' => 500,
 				'fields'         => 'ids',
 				'meta_key'       => '_dtrv_start', // phpcs:ignore WordPress.DB.SlowDBQuery
 				'orderby'        => 'meta_value_num',
 				'order'          => 'ASC',
+				'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery
+					array(
+						'key'     => '_dtrv_ende',
+						'value'   => time() - 60 * DAY_IN_SECONDS,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
 			)
 		);
+		update_meta_cache( 'post', $ids );
 		$liste = array();
 		foreach ( $ids as $id ) {
 			$d       = PostType::daten( $id );
 			$seite   = Detailseiten::id( $id, 'seite' );
 			$liste[] = array(
 				'id'        => $id,
-				'titel'     => get_the_title( $id ),
+				'titel'     => get_post_field( 'post_title', $id ),
 				'datum'     => Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ),
 				'start'     => gmdate( 'c', $d['start'] ),
 				'kategorie' => Plugin::kategorien()[ $d['kategorie'] ] ?? $d['kategorie'],
@@ -129,7 +139,7 @@ final class Rest {
 			$d = Vorschlaege::daten( $id );
 			unset( $d['email'], $d['name'] );
 			$d['bild']        = $d['bild'] ? wp_get_attachment_url( $d['bild'] ) : '';
-			$d['titel']       = get_the_title( $id );
+			$d['titel']       = get_post_field( 'post_title', $id );
 			$d['eingang']     = get_post_time( 'c', true, $id );
 			$d['google_link'] = Vorschlaege::google_link( $id );
 			$d['admin_link']  = admin_url( 'post.php?post=' . $id . '&action=edit' );
@@ -147,6 +157,13 @@ final class Rest {
 				return new \WP_Error( 'dtrv_limit', 'Zu viele Suchen. Bitte später erneut versuchen.', array( 'status' => 429 ) );
 			}
 			set_transient( $key, $anzahl + 1, HOUR_IN_SECONDS );
+			// Zusätzlich gesamt begrenzen, damit niemand die Seite als Geocoding-Dienst missbraucht
+			// und OpenStreetMap den Server sperrt.
+			$gesamt = (int) get_transient( 'dtrv_orte_stunde' );
+			if ( $gesamt >= 300 ) {
+				return new \WP_Error( 'dtrv_limit', 'Die Ortssuche ist gerade ausgelastet. Bitte später erneut versuchen.', array( 'status' => 429 ) );
+			}
+			set_transient( 'dtrv_orte_stunde', $gesamt + 1, HOUR_IN_SECONDS );
 		}
 		$treffer = Geo::suchen( sanitize_text_field( (string) $anfrage['q'] ) );
 		if ( is_wp_error( $treffer ) ) {

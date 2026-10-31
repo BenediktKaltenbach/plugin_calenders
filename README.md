@@ -97,6 +97,14 @@ The event list shows the coordinates in the "Karte" column with a link to check 
 
 The **suggestion form** has a "Ort suchen" button next to the location field. It shows up to five OpenStreetMap matches to choose from; there is no search-as-you-type, which Nominatim does not allow. There is also an optional field for a Google Maps/OpenStreetMap link. The coordinates are included in the notification mail and are put into the pre-filled Google event as a `Koordinaten:` line.
 
+## Events on the Tretrollerkarte
+
+If the [My Map Plugin](https://github.com/BenediktKaltenbach/map_plugin) (1.2.0 or newer) is active, upcoming events with coordinates appear on its map. They show as calendar-style markers in a separate legend group "Termine", with one category per calendar and its own colour. The popup shows date, location, class, status and links to "Infos" (the event page) and "Anmelden".
+
+- No copies are created: the map reads the mirrored events through the filters `mmp_categories` / `mmp_markers`. Past, removed or cancelled events disappear automatically.
+- For recurring events only the next date is shown.
+- Which categories appear is set under Termine › Einstellungen › Detailseiten › "Auf der Tretrollerkarte" (all by default).
+
 ## Event suggestions
 
 Anyone can suggest an event via the **DTRV-Terminvorschlag** block: title, category, date range, optional time, location, class (type F/A for Breitensport, W automatically for Wettkampf; Bergfaktor for both; neither for Ausbildung/Verband), info and registration links, description, an image (JPG/PNG/WebP, max. 8 MB), name and email, privacy consent.

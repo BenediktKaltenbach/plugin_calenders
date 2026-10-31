@@ -214,7 +214,7 @@ final class PostType {
 			document.getElementById( 'dtrv-geo-suchen' ).addEventListener( 'click', function () {
 				var q = document.getElementById( 'dtrv-geo-suche' ).value;
 				liste.textContent = 'Suche …';
-				fetch( d.orte + '?q=' + encodeURIComponent( q ), { headers: { 'X-WP-Nonce': d.nonce } } )
+				fetch( d.orte + ( d.orte.indexOf( '?' ) < 0 ? '?' : '&' ) + 'q=' + encodeURIComponent( q ), { headers: { 'X-WP-Nonce': d.nonce } } )
 					.then( function ( r ) { return r.json(); } )
 					.then( function ( treffer ) {
 						liste.textContent = '';

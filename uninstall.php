@@ -19,8 +19,10 @@ $ids = get_posts(
 	)
 );
 foreach ( $ids as $id ) {
+	// Nur vom Plugin heruntergeladene Bilder (Kalender) oder Bilder aus Vorschlägen löschen,
+	// keine vorhandenen Mediathek-Bilder, die über „Bild:“ verlinkt waren.
 	$bild = (int) get_post_meta( $id, '_dtrv_bild', true );
-	if ( $bild ) {
+	if ( $bild && ( get_post_meta( $bild, '_dtrv_bild_quelle', true ) || 'dtrv_vorschlag' === get_post_type( $id ) ) ) {
 		wp_delete_attachment( $bild, true );
 	}
 	wp_delete_post( $id, true );

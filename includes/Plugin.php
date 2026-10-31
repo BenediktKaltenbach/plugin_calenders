@@ -24,7 +24,9 @@ final class Plugin {
 		add_action( 'init', array( Vorschlaege::class, 'registrieren' ) );
 		add_action( 'init', array( self::class, 'block_und_shortcode' ) );
 		add_action( self::CRON_HOOK, array( Sync::class, 'wenn_faellig' ) );
+		add_action( self::CRON_HOOK, array( self::class, 'tokens_aufraeumen' ) );
 		add_action( 'rest_api_init', array( Rest::class, 'routen' ) );
+		Karte::start();
 		add_action( 'template_redirect', array( Formular::class, 'verarbeiten' ), 1 );
 		add_action( 'template_redirect', array( Vorschlaege::class, 'link_aufruf' ), 1 );
 
@@ -44,6 +46,38 @@ final class Plugin {
 		register_block_type( dirname( DATEI ) . '/blocks/infobox' );
 		add_shortcode( 'dtrv_termine', array( Renderer::class, 'shortcode' ) );
 		add_shortcode( 'dtrv_termin_vorschlag', array( Formular::class, 'shortcode' ) );
+	}
+
+	/**
+	 * Legt eine Option nur an, wenn es sie noch nicht gibt – atomar per INSERT IGNORE
+	 * (add_option prüft erst und schreibt dann, das ist nicht atomar).
+	 *
+	 * @return bool true, wenn dieser Aufruf die Option angelegt hat.
+	 */
+	public static function einmalig( string $name, string $wert ): bool {
+		global $wpdb;
+		$ok = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
+				$name,
+				$wert
+			)
+		);
+		wp_cache_delete( $name, 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+		return 1 === $ok;
+	}
+
+	/** Räumt einmalige Formular-Tokens auf, die älter als zwei Tage sind. */
+	public static function tokens_aufraeumen(): void {
+		global $wpdb;
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND CAST(option_value AS UNSIGNED) < %d",
+				$wpdb->esc_like( 'dtrv_t_' ) . '%',
+				time() - 2 * DAY_IN_SECONDS
+			)
+		);
 	}
 
 	public static function aktivieren(): void {

@@ -18,6 +18,9 @@ final class Bilder {
 
 	private const MAX_MB          = 15;
 	private const NEUER_VERSUCH   = 6 * 3600;
+	private const MAX_JE_ABGLEICH = 5;
+
+	private static int $downloads = 0;
 
 	/** Drive-Datei-ID aus den üblichen Link-Formen, sonst ''. Ohne WordPress-Abhängigkeit. */
 	public static function drive_id( string $url ): string {
@@ -119,6 +122,11 @@ final class Bilder {
 			return (int) $vorhanden[0];
 		}
 
+		// Pro Abgleich nur wenige Downloads, damit der Lauf auf Shared Hosting nicht abbricht.
+		if ( self::$downloads >= self::MAX_JE_ABGLEICH ) {
+			return 0;
+		}
+
 		// Fehlgeschlagene Downloads nicht stündlich wiederholen.
 		$versuch = (array) get_post_meta( $termin_id, '_dtrv_bild_versuch', true );
 		if ( ( $versuch['quelle'] ?? '' ) === $schluessel && time() - (int) ( $versuch['zeit'] ?? 0 ) < self::NEUER_VERSUCH ) {
@@ -133,6 +141,7 @@ final class Bilder {
 			)
 		);
 
+		++self::$downloads;
 		$ergebnis = self::herunterladen( $termin_id, $url, $schluessel );
 		if ( is_wp_error( $ergebnis ) ) {
 			update_post_meta( $termin_id, '_dtrv_bild_fehler', $ergebnis->get_error_message() );
@@ -163,7 +172,7 @@ final class Bilder {
 			return new \WP_Error(
 				'dtrv',
 				self::drive_id( $url )
-					? 'Bild nicht öffentlich freigegeben (Drive-Datei muss „Jeder mit dem Link“ sein, z. B. im freigegebenen Bilder-Ordner).'
+					? 'Kein verwendbares Bild: entweder nicht öffentlich freigegeben (Drive-Datei muss „Jeder mit dem Link“ sein, z. B. im freigegebenen Bilder-Ordner) oder ein HEIC-Foto vom iPhone – bitte als JPG ablegen.'
 					: 'Unter der Adresse liegt kein JPG-, PNG- oder WebP-Bild.'
 			);
 		}

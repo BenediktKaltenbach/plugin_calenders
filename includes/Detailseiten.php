@@ -26,6 +26,11 @@ final class Detailseiten {
 
 	private const SCHEMA = 3;
 
+	/** Höchstens so viele neue Seiten/Beiträge je Abgleich (z. B. bei wöchentlichen Serien). */
+	private const MAX_JE_ABGLEICH = 20;
+
+	private static int $angelegt = 0;
+
 	public static function admin(): void {
 		add_action( 'admin_post_dtrv_detail_anlegen', array( self::class, 'anlegen_knopf' ) );
 	}
@@ -147,6 +152,10 @@ final class Detailseiten {
 			if ( ! $soll || self::id( $termin_id, $art ) || get_post_meta( $termin_id, '_dtrv_' . $art . '_auto', true ) ) {
 				continue;
 			}
+			if ( self::$angelegt >= self::MAX_JE_ABGLEICH ) {
+				return; // Rest beim nächsten Abgleich
+			}
+			++self::$angelegt;
 			update_post_meta( $termin_id, '_dtrv_' . $art . '_auto', 1 );
 			self::anlegen( $termin_id, $art );
 		}

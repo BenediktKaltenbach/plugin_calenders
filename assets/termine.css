@@ -93,7 +93,7 @@
 	align-items: center;
 	padding: 15px 30px;
 	border-radius: 5px;
-	background: var(--dtrv-akzent);
+	background: var(--dtrv-akzent, #006666);
 	color: #fff;
 	font-size: 14px;
 	line-height: 1;
@@ -175,7 +175,9 @@
 	border-radius: 5px;
 	background: #fff;
 	color: inherit;
-	font: inherit;
+	font-family: inherit;
+	font-size: max(16px, 1em); /* unter 16px zoomt iOS beim Antippen hinein */
+	line-height: 1.4;
 }
 
 .dtrv-vorschlag input:focus,
@@ -323,6 +325,10 @@
 }
 
 /* Vorschlagsformular zugeklappt: nur der Knopf ist sichtbar. */
+.dtrv-vorschlag-box {
+	--dtrv-akzent: #006666;
+}
+
 .dtrv-vorschlag-box > summary {
 	list-style: none;
 	cursor: pointer;
