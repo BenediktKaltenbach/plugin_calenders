@@ -26,7 +26,38 @@ final class Karte {
 		add_filter( 'mmp_categories', array( self::class, 'kategorien' ) );
 		add_filter( 'mmp_markers', array( self::class, 'marker' ) );
 		add_filter( 'mmp_termin_url', array( self::class, 'formular_url' ) );
-		add_action( 'save_post', static fn() => delete_transient( 'dtrv_formular_url' ) );
+		add_action(
+			'save_post',
+			static function () {
+				delete_transient( 'dtrv_formular_url' );
+				delete_transient( 'dtrv_karten_url' );
+			}
+		);
+	}
+
+	/**
+	 * Knopf „Zur Tretrollerkarte“ neben „Termin einreichen“: veröffentlichte Seite mit dem
+	 * Shortcode [my_map]. Leer, wenn das Karten-Plugin fehlt oder keine Seite die Karte zeigt.
+	 */
+	public static function karten_url(): string {
+		if ( ! shortcode_exists( 'my_map' ) ) {
+			return '';
+		}
+		$gefunden = get_transient( 'dtrv_karten_url' );
+		if ( false === $gefunden ) {
+			$ids      = get_posts(
+				array(
+					'post_type'      => array( 'page', 'post' ),
+					'post_status'    => 'publish',
+					's'              => '[my_map',
+					'posts_per_page' => 1,
+					'fields'         => 'ids',
+				)
+			);
+			$gefunden = $ids ? (string) get_permalink( $ids[0] ) : '';
+			set_transient( 'dtrv_karten_url', $gefunden, DAY_IN_SECONDS );
+		}
+		return (string) apply_filters( 'dtrv_termine_karten_url', $gefunden );
 	}
 
 	/**

@@ -417,7 +417,10 @@ final class Formular {
 
 		// Klein starten: nur ein Knopf, das Formular klappt auf (nach Fehlern bleibt es offen).
 		$html  = '<details id="dtrv-vorschlag" class="dtrv-vorschlag-box"' . ( $f ? ' open' : '' ) . '>';
-		$html .= '<summary class="dtrv-termin__knopf">Termin einreichen</summary>';
+		$karte = Karte::karten_url();
+		$html .= '<summary class="dtrv-vorschlag-leiste"><span class="dtrv-termin__knopf dtrv-vorschlag__auf">Termin einreichen</span>'
+			. ( '' !== $karte ? '<a class="dtrv-termin__knopf dtrv-termin__knopf--zweit" href="' . esc_url( $karte ) . '">Zur Tretrollerkarte</a>' : '' )
+			. '</summary>';
 		$html .= '<form class="dtrv-vorschlag" method="post" enctype="multipart/form-data" action="#dtrv-vorschlag">';
 		if ( isset( $f['_'] ) ) {
 			$html .= '<div class="dtrv-vorschlag__meldung" role="alert">' . esc_html( $f['_'] ) . '</div>';
