@@ -12,9 +12,10 @@ namespace DTRV\Termine;
 
 final class Karte {
 
+	// Deutlich verschiedene Farbtöne, damit die Kategorien in der Legende unterscheidbar sind.
 	public const FARBEN = array(
 		'wettkampf'    => '#006666',
-		'breitensport' => '#2e7d32',
+		'breitensport' => '#c2185b',
 		'ausbildung'   => '#6a1b9a',
 		'verband'      => '#c75b00',
 	);

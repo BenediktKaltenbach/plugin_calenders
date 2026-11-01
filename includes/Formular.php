@@ -419,11 +419,12 @@ final class Formular {
 		$html  = '<details id="dtrv-vorschlag" class="dtrv-vorschlag-box"' . ( $f ? ' open' : '' ) . '>';
 		$karte = Karte::karten_url();
 		// Knopftext zeigt den Zustand: „+ Termin einreichen“ zu, „× Formular schließen“ offen (per CSS).
-		$html .= '<summary class="dtrv-vorschlag-leiste"><span class="dtrv-termin__knopf dtrv-vorschlag__auf">'
+		// Der Hinweis steht direkt unter dem Knopf, den er erklärt.
+		$html .= '<summary class="dtrv-vorschlag-leiste"><span class="dtrv-vorschlag__haupt"><span class="dtrv-termin__knopf dtrv-vorschlag__auf">'
 			. '<span class="dtrv-vorschlag__zu"><span aria-hidden="true">+</span> Termin einreichen</span>'
 			. '<span class="dtrv-vorschlag__offen"><span aria-hidden="true">×</span> Formular schließen</span></span>'
-			. ( '' !== $karte ? '<a class="dtrv-termin__knopf dtrv-termin__knopf--zweit" href="' . esc_url( $karte ) . '">Zur Tretrollerkarte <span aria-hidden="true">↗</span></a>' : '' )
-			. '<span class="dtrv-vorschlag__hinweis">Veranstaltung melden – wir prüfen und tragen sie ein.</span>'
+			. '<span class="dtrv-vorschlag__hinweis">Veranstaltung melden – wir prüfen und tragen sie ein.</span></span>'
+			. ( '' !== $karte ? '<a class="dtrv-termin__knopf dtrv-termin__knopf--zweit" href="' . esc_url( $karte ) . '">Zur Tretrollerkarte' . Renderer::ICON_PFEIL . '</a>' : '' )
 			. '</summary>';
 		$html .= '<form class="dtrv-vorschlag" method="post" enctype="multipart/form-data" action="#dtrv-vorschlag">';
 		if ( isset( $f['_'] ) ) {

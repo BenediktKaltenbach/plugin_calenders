@@ -334,6 +334,7 @@
 .dtrv-vorschlag-box > summary {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: flex-start;
 	gap: 10px;
 	list-style: none;
 	cursor: pointer;
@@ -358,13 +359,15 @@
 	display: inline;
 }
 
-.dtrv-termin__knopf--zweit > span {
-	margin-left: 8px;
+.dtrv-vorschlag__haupt {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 }
 
 .dtrv-vorschlag__hinweis {
-	flex-basis: 100%;
-	font-size: 0.9em;
+	font-size: 0.85em;
+	line-height: 1.3;
 	opacity: 0.8;
 }
 
