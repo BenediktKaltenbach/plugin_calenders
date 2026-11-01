@@ -25,6 +25,39 @@ final class Karte {
 	public static function start(): void {
 		add_filter( 'mmp_categories', array( self::class, 'kategorien' ) );
 		add_filter( 'mmp_markers', array( self::class, 'marker' ) );
+		add_filter( 'mmp_termin_url', array( self::class, 'formular_url' ) );
+		add_action( 'save_post', static fn() => delete_transient( 'dtrv_formular_url' ) );
+	}
+
+	/**
+	 * Knopf „Termin einreichen“ unter der Karte: veröffentlichte Seite mit dem Formular-Block
+	 * (oder Shortcode). Eine in my-map eingetragene Adresse hat Vorrang.
+	 */
+	public static function formular_url( string $url ): string {
+		if ( '' !== $url ) {
+			return $url;
+		}
+		$gefunden = get_transient( 'dtrv_formular_url' );
+		if ( false === $gefunden ) {
+			$gefunden = '';
+			foreach ( array( 'wp:dtrv/vorschlag', '[dtrv_termin_vorschlag' ) as $suche ) {
+				$ids = get_posts(
+					array(
+						'post_type'      => array( 'page', 'post' ),
+						'post_status'    => 'publish',
+						's'              => $suche,
+						'posts_per_page' => 1,
+						'fields'         => 'ids',
+					)
+				);
+				if ( $ids ) {
+					$gefunden = get_permalink( $ids[0] ) . '#dtrv-vorschlag';
+					break;
+				}
+			}
+			set_transient( 'dtrv_formular_url', $gefunden, DAY_IN_SECONDS );
+		}
+		return (string) $gefunden;
 	}
 
 	/** Nur Kategorien, die gerade Termine auf der Karte haben. */

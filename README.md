@@ -124,6 +124,7 @@ If the [My Map Plugin](https://github.com/BenediktKaltenbach/map_plugin) (1.2.0 
 - No copies are created: the map reads the mirrored events through the filters `mmp_categories` / `mmp_markers`. Past, removed or cancelled events disappear automatically.
 - For recurring events only the next date is shown.
 - Which categories appear is set under Termine › Einstellungen › Detailseiten › "Auf der Tretrollerkarte" (all by default).
+- The map's "📅 Termin einreichen" button automatically points to the published page containing the suggestion form (block or shortcode). Following that link opens the collapsed form right away.
 
 ## Event suggestions
 

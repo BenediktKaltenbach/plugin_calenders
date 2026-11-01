@@ -19,6 +19,12 @@
 		var knopfText = knopf ? knopf.textContent : '';
 		var daten = window.dtrvVorschlag || {};
 
+		// Über einen Link mit #dtrv-vorschlag gekommen (z. B. „Termin einreichen“ unter der Karte):
+		// Formular gleich aufklappen.
+		if ( window.location.hash === '#dtrv-vorschlag' && 'open' in box ) {
+			box.open = true;
+		}
+
 		// Felder je Kategorie ein-/ausblenden (Art nur Breitensport, Bergfaktor auch Wettkampf).
 		function felder() {
 			var wert = kategorie ? kategorie.value : '';
