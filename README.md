@@ -117,7 +117,7 @@ Anyone can suggest an event via the **DTRV-Terminvorschlag** block. It starts co
   2. **Erledigt – Dankes-Mail senden** sends the submitter a thank-you email and then deletes their email address.
   3. **Ablehnen** archives the suggestion and deletes email and image.
 - The approve link in the email only marks the suggestion as approved, so someone else can enter it later.
-- **Automatic hand-over:** after every sync, open suggestions (new or approved) that now exist in the calendar (same day, matching title – case, punctuation and year are ignored) are marked "Eingetragen" automatically, and the thank-you mail is sent. Clicking "Erledigt" by hand is only needed if the title in Google differs a lot.
+- **Automatic hand-over:** after every sync, open suggestions (new or approved) that now exist in the calendar are marked "Eingetragen" automatically, and the thank-you mail is sent. The date must always match, plus either **exactly the same title** (only extra spaces are ignored; "Eintragen" pre-fills Google with exactly this title) or the event is the **only one in the suggestion's category on that day**. Otherwise click "Erledigt" by hand.
 - Each suggestion shows whether WordPress handed the notification mail to the mail server (column "Mail"). Settings has a "Test-Mail senden" button and counts suggestions dropped by spam protection.
 - **Privacy:** name and email are stored only until the suggestion is processed. The IP address is only used hashed, for one hour, as a spam counter.
 

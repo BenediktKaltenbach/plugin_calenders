@@ -138,12 +138,12 @@ pruefe( 'Google Klasse als Schlüsselzeile', $q['details'], "Tour\n\n---\nKlasse
 parse_str( (string) parse_url( Vorschlaege::google_url( array_merge( $v, array( 'geo' => $bonn ) ), 'T' ), PHP_URL_QUERY ), $q );
 pruefe( 'Google Koordinaten als Schlüsselzeile', $q['details'], "Tour\n\n---\nKoordinaten: 50.7151, 7.1393" );
 
-// Vorschlag ↔ Kalendertermin: Titelvergleich.
-pruefe( 'Titel gleich', Vorschlaege::titel_passt( 'Rheinradeln', 'Rheinradeln' ), true );
-pruefe( 'Titel mit Jahr', Vorschlaege::titel_passt( 'Osterchallenge', 'Osterchallenge 2027' ), true );
-pruefe( 'Titel Satzzeichen', Vorschlaege::titel_passt( 'Drei-Länder-Tour', 'Drei Länder Tour (NL, D, BE)' ), true );
-pruefe( 'Titel Tippfehler', Vorschlaege::titel_passt( 'Autofreies Eistal', 'Autofreies Eisstal' ), true );
-pruefe( 'Titel verschieden', Vorschlaege::titel_passt( 'Siegtal Pur', 'Rheinradeln' ), false );
+// Vorschlag ↔ Kalendertermin: Titel muss genau gleich sein (nur Leerzeichen egal).
+pruefe( 'Titel gleich', Vorschlaege::titel_gleich( 'Rheinradeln', 'Rheinradeln' ), true );
+pruefe( 'Titel Leerzeichen', Vorschlaege::titel_gleich( ' Siegtal  Pur ', 'Siegtal Pur' ), true );
+pruefe( 'Titel mit Jahr ist anders', Vorschlaege::titel_gleich( 'Osterchallenge', 'Osterchallenge 2027' ), false );
+pruefe( 'Titel Groß/Klein ist anders', Vorschlaege::titel_gleich( 'rheinradeln', 'Rheinradeln' ), false );
+pruefe( 'Titel leer', Vorschlaege::titel_gleich( '', '' ), false );
 
 echo $fehler ? "\n$fehler Fehler\n" : "\nAlles ok\n";
 exit( $fehler ? 1 : 0 );

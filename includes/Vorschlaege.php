@@ -113,7 +113,8 @@ final class Vorschlaege {
 
 	/**
 	 * Nach dem Abgleich: Offene Vorschläge (neu oder freigegeben), die inzwischen im
-	 * Kalender stehen (gleicher Tag, ähnlicher Titel), werden „eingetragen“ – mit Dankes-Mail.
+	 * Kalender stehen, werden „eingetragen“ – mit Dankes-Mail. Der Tag muss immer stimmen;
+	 * dazu entweder genau derselbe Titel oder der einzige Termin der Kategorie an diesem Tag.
 	 */
 	public static function abgleichen(): void {
 		$offen = get_posts(
@@ -149,33 +150,33 @@ final class Vorschlaege {
 					),
 				)
 			);
+			$treffer   = 0;
+			$kategorie = (string) get_post_meta( $id, '_dtrv_kategorie', true );
+			$gleiche   = array();
 			foreach ( $termine as $termin_id ) {
-				if ( self::titel_passt( get_post_field( 'post_title', $id ), get_post_field( 'post_title', $termin_id ) ) ) {
-					update_post_meta( $id, '_dtrv_termin_id', $termin_id );
-					self::status_setzen( $id, 'eingetragen' );
+				if ( self::titel_gleich( get_post_field( 'post_title', $id ), get_post_field( 'post_title', $termin_id ) ) ) {
+					$treffer = $termin_id;
 					break;
 				}
+				if ( get_post_meta( $termin_id, '_dtrv_kategorie', true ) === $kategorie ) {
+					$gleiche[] = $termin_id;
+				}
+			}
+			// Kein gleicher Titel: nur wenn es an dem Tag genau einen Termin dieser Kategorie gibt.
+			if ( ! $treffer && 1 === count( $gleiche ) ) {
+				$treffer = $gleiche[0];
+			}
+			if ( $treffer ) {
+				update_post_meta( $id, '_dtrv_termin_id', $treffer );
+				self::status_setzen( $id, 'eingetragen' );
 			}
 		}
 	}
 
-	/** Gleicher oder sehr ähnlicher Titel (Groß/Klein, Satzzeichen, Jahreszahl egal). Ohne WordPress-Abhängigkeit. */
-	public static function titel_passt( string $a, string $b ): bool {
-		$norm = static function ( string $s ): string {
-			$s = mb_strtolower( $s, 'UTF-8' );
-			$s = preg_replace( '/\b(19|20)\d{2}\b/u', '', $s );
-			return preg_replace( '/[^\p{L}\p{N}]+/u', '', $s );
-		};
-		$a = $norm( $a );
-		$b = $norm( $b );
-		if ( '' === $a || '' === $b ) {
-			return false;
-		}
-		if ( $a === $b || ( mb_strlen( $a ) >= 5 && str_contains( $b, $a ) ) || ( mb_strlen( $b ) >= 5 && str_contains( $a, $b ) ) ) {
-			return true;
-		}
-		similar_text( $a, $b, $prozent );
-		return $prozent >= 80;
+	/** Genau derselbe Titel; nur zusätzliche Leerzeichen zählen nicht. Ohne WordPress-Abhängigkeit. */
+	public static function titel_gleich( string $a, string $b ): bool {
+		$norm = static fn( string $s ): string => trim( (string) preg_replace( '/\s+/u', ' ', $s ) );
+		return '' !== $norm( $a ) && $norm( $a ) === $norm( $b );
 	}
 
 	public static function daten( int $id ): array {
