@@ -85,13 +85,33 @@ final class Renderer {
 			array(
 				'post_type'      => PostType::NAME,
 				'post_status'    => 'publish',
-				'posts_per_page' => $anzahl ? $anzahl : 200,
+				'posts_per_page' => 200,
 				'meta_key'       => '_dtrv_start', // phpcs:ignore WordPress.DB.SlowDBQuery
 				'orderby'        => 'meta_value_num',
 				'order'          => 'ASC',
 				'meta_query'     => $meta, // phpcs:ignore WordPress.DB.SlowDBQuery
 			)
 		);
+
+		// Termine mit „Anzeige:“ (z. B. „regelmäßig“) ans Ende, Serien davon nur einmal.
+		$normal = array();
+		$hinten = array();
+		$serien = array();
+		foreach ( $posts as $post ) {
+			if ( '' === self::anzeige( $post->ID ) ) {
+				$normal[] = $post;
+				continue;
+			}
+			$serie = strtok( (string) get_post_meta( $post->ID, '_dtrv_schluessel', true ), '|' );
+			if ( ! isset( $serien[ $serie ] ) ) {
+				$serien[ $serie ] = true;
+				$hinten[]         = $post;
+			}
+		}
+		$posts = array_merge( $normal, $hinten );
+		if ( $anzahl ) {
+			$posts = array_slice( $posts, 0, $anzahl );
+		}
 
 		if ( ! $posts ) {
 			return '<p class="dtrv-termine-leer">Derzeit sind keine Termine eingetragen.</p>';
@@ -124,11 +144,14 @@ final class Renderer {
 			);
 		}
 
-		$meta = sprintf(
-			'<time datetime="%s">%s</time>',
-			esc_attr( ( new \DateTimeImmutable( '@' . $d['start'] ) )->setTimezone( $tz )->format( $d['ganztaegig'] ? 'Y-m-d' : 'c' ) ),
-			esc_html( Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ) )
-		);
+		$anzeige = self::anzeige( $post->ID );
+		$meta    = '' !== $anzeige
+			? '<span class="dtrv-termin__anzeige">' . esc_html( $anzeige ) . '</span>'
+			: sprintf(
+				'<time datetime="%s">%s</time>',
+				esc_attr( ( new \DateTimeImmutable( '@' . $d['start'] ) )->setTimezone( $tz )->format( $d['ganztaegig'] ? 'Y-m-d' : 'c' ) ),
+				esc_html( Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ) )
+			);
 		if ( '' !== $d['ort'] ) {
 			$meta .= ', ' . esc_html( $d['ort'] );
 		}
@@ -187,7 +210,7 @@ final class Renderer {
 		$vorbei  = $d['ende'] < time();
 		$klassen = 'dtrv-infobox' . ( $status ? ' is-' . $status : '' ) . ( $vorbei ? ' is-vorbei' : '' );
 
-		$datum = esc_html( Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ) );
+		$datum = esc_html( self::datum_oder_anzeige( $termin_id, $d ) );
 		if ( $status ) {
 			$datum = '<span class="dtrv-infobox__datum">' . $datum . '</span> <span class="dtrv-termin__hinweis">' . esc_html( self::STATUS_TEXT[ $status ] ?? $status ) . '</span>';
 		}
@@ -242,6 +265,18 @@ final class Renderer {
 			}
 		}
 		return $land;
+	}
+
+	/** Text aus der Schlüsselzeile „Anzeige:“ oder ''. */
+	public static function anzeige( int $termin_id ): string {
+		$felder = (array) get_post_meta( $termin_id, '_dtrv_felder', true );
+		return (string) ( $felder['anzeige'] ?? '' );
+	}
+
+	/** „Anzeige:“-Text, sonst das formatierte Datum. */
+	public static function datum_oder_anzeige( int $termin_id, array $d ): string {
+		$anzeige = self::anzeige( $termin_id );
+		return '' !== $anzeige ? $anzeige : Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] );
 	}
 
 	/** Veröffentlichte Seite (sonst Beitrag) hat Vorrang vor dem Link aus „Infos:“. */

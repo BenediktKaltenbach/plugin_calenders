@@ -112,6 +112,7 @@ pruefe( 'Geo OSM Marker', Geo::lesen( 'https://www.openstreetmap.org/?mlat=50.71
 pruefe( 'Geo OSM Ausschnitt', Geo::lesen( 'https://www.openstreetmap.org/#map=15/50.7151/7.1393' ), $bonn );
 pruefe( 'Geo ungültig', Geo::lesen( 'Marktplatz Bonn' ), null );
 pruefe( 'Geo außerhalb', Geo::lesen( '95.0, 7.0' ), null );
+pruefe( 'Anzeige-Zeile', Parser::beschreibung( "x\n---\nAnzeige: regelmäßig" )['felder'], array( 'anzeige' => 'regelmäßig' ) );
 pruefe( 'Koordinaten-Zeile', Parser::beschreibung( "x\n---\nKoordinaten: 50.7151, 7.1393" )['felder'], array( 'koordinaten' => '50.7151, 7.1393' ) );
 
 // Vorausgefüllter Google-Kalender-Link für Vorschläge.

@@ -178,7 +178,7 @@ final class Karte {
 
 	/** Inhalt der Sprechblase (bereits escaped). */
 	private static function popup( int $id, array $d ): string {
-		$zeilen = array( '<strong>' . esc_html( Format::zeitraum( $d['start'], $d['ende'], $d['ganztaegig'] ) ) . '</strong>' );
+		$zeilen = array( '<strong>' . esc_html( Renderer::datum_oder_anzeige( $id, $d ) ) . '</strong>' );
 		if ( '' !== $d['ort'] ) {
 			$zeilen[] = esc_html( $d['ort'] );
 		}

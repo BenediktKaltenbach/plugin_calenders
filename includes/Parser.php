@@ -29,6 +29,7 @@ final class Parser {
 		'geo'         => 'koordinaten',
 		'karte'       => 'koordinaten',
 		'treffpunkt'  => 'koordinaten',
+		'anzeige'     => 'anzeige',
 	);
 
 	private const STATUS = array(
@@ -148,6 +149,10 @@ final class Parser {
 				}
 				$ok = filter_var( $wert, FILTER_VALIDATE_URL ) && preg_match( '#^https?://#i', $wert );
 				return $ok ? $wert : null;
+
+			case 'anzeige':
+				// Freier Text statt Datum in der Liste, z. B. „regelmäßig“ (kurz halten).
+				return mb_substr( $wert, 0, 60, 'UTF-8' );
 
 			case 'koordinaten':
 				// Zahlen oder Karten-Link; ausgewertet wird in Geo (Kurzlinks brauchen eine Anfrage).
