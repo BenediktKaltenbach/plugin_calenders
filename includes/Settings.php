@@ -286,9 +286,11 @@ final class Settings {
 					<?php wp_nonce_field( 'dtrv_termine_google_test' ); ?>
 					<?php submit_button( 'Verbindung testen', 'secondary', 'submit', false ); ?>
 				</form>
+			<?php elseif ( '' !== Google::lesen()['problem'] ) : ?>
+				<div class="notice notice-error inline"><p><strong>Schlüssel gefunden, aber nicht verwendbar:</strong> <?php echo esc_html( Google::lesen()['problem'] ); ?></p></div>
 			<?php else : ?>
 				<p>Nicht eingerichtet – angenommene Vorschläge werden über „Eintragen“ von Hand in Google gespeichert. Für den direkten Eintrag ein Google-Dienstkonto anlegen, die vier Kalender mit ihm teilen und in <code>wp-config.php</code> eintragen:</p>
-				<p><code>define( 'DTRV_TERMINE_GOOGLE_KEY_FILE', '/pfad/außerhalb/des/webroots/dtrv-google.json' );</code></p>
+				<p><code>define( 'DTRV_TERMINE_GOOGLE_KEY', &lt;&lt;&lt;'JSON'</code> … Inhalt der .json-Datei … <code>JSON</code> <code>);</code> – oder den Pfad zur Datei (außerhalb des Web-Ordners): <code>define( 'DTRV_TERMINE_GOOGLE_KEY_FILE', '/pfad/dtrv-google.json' );</code></p>
 				<p>Anleitung: README des Plugins auf GitHub, Abschnitt „Writing to Google Calendar“.</p>
 			<?php endif; ?>
 

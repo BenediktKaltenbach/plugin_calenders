@@ -154,6 +154,16 @@ Koordinaten: 50.7151, 7.1393
 Anmeldung: https://a.de/"
 );
 
+// Google-Schlüssel prüfen (mit einem für den Test erzeugten Schlüssel).
+require __DIR__ . '/../includes/Google.php';
+$pk = openssl_pkey_new( array( 'private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA ) );
+openssl_pkey_export( $pk, $pem );
+$gut = json_encode( array( 'type' => 'service_account', 'client_email' => 'x@y.iam.gserviceaccount.com', 'private_key' => $pem ) );
+pruefe( 'Schlüssel gültig', Google::pruefen( $gut )['problem'], '' );
+pruefe( 'Schlüssel mit echten Zeilenumbrüchen repariert', Google::pruefen( str_replace( '\\n', "\n", $gut ) )['problem'], '' );
+pruefe( 'Schlüssel kein JSON', str_starts_with( Google::pruefen( '{ kaputt' )['problem'], 'Der Schlüssel ist kein gültiges JSON' ), true );
+pruefe( 'Schlüssel ohne client_email', str_contains( Google::pruefen( '{"private_key":"x"}' )['problem'], 'client_email' ), true );
+
 // Vorschlag ↔ Kalendertermin: Titel muss genau gleich sein (nur Leerzeichen egal).
 pruefe( 'Titel gleich', Vorschlaege::titel_gleich( 'Rheinradeln', 'Rheinradeln' ), true );
 pruefe( 'Titel Leerzeichen', Vorschlaege::titel_gleich( ' Siegtal  Pur ', 'Siegtal Pur' ), true );

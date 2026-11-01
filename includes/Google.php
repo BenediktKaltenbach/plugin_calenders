@@ -21,14 +21,73 @@ final class Google {
 
 	/** @return array{client_email: string, private_key: string}|null */
 	private static function schluessel(): ?array {
-		$json = '';
-		if ( defined( 'DTRV_TERMINE_GOOGLE_KEY_FILE' ) && is_readable( DTRV_TERMINE_GOOGLE_KEY_FILE ) ) {
+		return self::lesen()['schluessel'];
+	}
+
+	/**
+	 * Liest den Schlüssel aus wp-config.php und sagt, was nicht stimmt.
+	 *
+	 * @return array{schluessel: array|null, problem: string}
+	 */
+	public static function lesen(): array {
+		$ergebnis = static fn( ?array $k, string $problem ) => array(
+			'schluessel' => $k,
+			'problem'    => $problem,
+		);
+		if ( defined( 'DTRV_TERMINE_GOOGLE_KEY_FILE' ) ) {
+			if ( ! is_readable( DTRV_TERMINE_GOOGLE_KEY_FILE ) ) {
+				return $ergebnis( null, 'DTRV_TERMINE_GOOGLE_KEY_FILE ist gesetzt, aber die Datei ist nicht lesbar: ' . DTRV_TERMINE_GOOGLE_KEY_FILE );
+			}
 			$json = (string) file_get_contents( DTRV_TERMINE_GOOGLE_KEY_FILE ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		} elseif ( defined( 'DTRV_TERMINE_GOOGLE_KEY' ) ) {
 			$json = (string) DTRV_TERMINE_GOOGLE_KEY;
+		} else {
+			return $ergebnis( null, '' );
 		}
-		$k = json_decode( $json, true );
-		return is_array( $k ) && ! empty( $k['client_email'] ) && ! empty( $k['private_key'] ) ? $k : null;
+		return self::pruefen( $json );
+	}
+
+	/**
+	 * Prüft den JSON-Inhalt eines Schlüssels. Repariert Zeilenumbrüche im privaten
+	 * Schlüssel, die beim Kopieren aus „\n“ entstanden sind. Ohne WordPress-Abhängigkeit.
+	 *
+	 * @return array{schluessel: array|null, problem: string}
+	 */
+	public static function pruefen( string $json ): array {
+		$json = trim( preg_replace( '/^\xEF\xBB\xBF/', '', $json ) );
+		$k    = json_decode( $json, true );
+		if ( ! is_array( $k ) ) {
+			$repariert = preg_replace_callback(
+				'/-----BEGIN PRIVATE KEY-----.*?-----END PRIVATE KEY-----\s*/s',
+				static fn( $m ) => str_replace( array( "\r\n", "\n", "\r" ), '\\n', rtrim( $m[0] ) ) . '\\n',
+				$json
+			);
+			$k = json_decode( (string) $repariert, true );
+		}
+		if ( ! is_array( $k ) ) {
+			return array(
+				'schluessel' => null,
+				'problem'    => 'Der Schlüssel ist kein gültiges JSON (' . json_last_error_msg() . '). Bitte den Inhalt der .json-Datei unverändert einfügen.',
+			);
+		}
+		foreach ( array( 'client_email', 'private_key' ) as $feld ) {
+			if ( empty( $k[ $feld ] ) ) {
+				return array(
+					'schluessel' => null,
+					'problem'    => 'Im Schlüssel fehlt „' . $feld . '“ – ist es die JSON-Datei eines Dienstkontos?',
+				);
+			}
+		}
+		if ( ! openssl_pkey_get_private( $k['private_key'] ) ) {
+			return array(
+				'schluessel' => null,
+				'problem'    => 'Der private Schlüssel („private_key“) ist beschädigt. Bitte die .json-Datei erneut unverändert einfügen.',
+			);
+		}
+		return array(
+			'schluessel' => $k,
+			'problem'    => '',
+		);
 	}
 
 	public static function konfiguriert(): bool {
