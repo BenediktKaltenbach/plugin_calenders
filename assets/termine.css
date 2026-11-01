@@ -389,17 +389,17 @@
 	margin: 10px 0 0;
 }
 
-/* Wie die „Mehr Details →“-Links des Themes: Textfarbe, Pfeil nach rechts. */
+/* Wie die „Mehr Details →“-Links des Themes (Schrift, Pfeil nach rechts), aber in Grün. */
 .dtrv-vorschlag__karte a {
 	display: inline-flex;
 	align-items: center;
-	color: inherit;
+	color: var(--dtrv-akzent, #006666);
 	text-decoration: none;
 }
 
 .dtrv-vorschlag__karte a:hover,
 .dtrv-vorschlag__karte a:focus {
-	color: var(--dtrv-akzent, #006666);
+	text-decoration: underline;
 }
 
 .dtrv-vorschlag__karte svg {
