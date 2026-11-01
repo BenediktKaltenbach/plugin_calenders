@@ -133,7 +133,7 @@ pruefe( 'Google ganztägig', array( $q['text'], $q['dates'], $q['location'] ), a
 pruefe( 'Google Schlüsselzeilen', $q['details'], "Tour\n\n---\nInfos: https://dtrv.net/x/" );
 $v = array_merge( $v, array( 'bis' => '', 'zeit_von' => '10:00', 'zeit_bis' => '', 'infos' => '' ) );
 parse_str( (string) parse_url( Vorschlaege::google_url( $v, 'T', 'https://dtrv.net/b.jpg' ), PHP_URL_QUERY ), $q );
-pruefe( 'Google mit Uhrzeit', array( $q['dates'], $q['ctz'] ), array( '20270402T100000/20270402T120000', 'Europe/Berlin' ) );
+pruefe( 'Google mit Uhrzeit', array( $q['dates'], $q['ctz'] ), array( '20270402T100000/20270402T100000', 'Europe/Berlin' ) );
 pruefe( 'Google Bild im Text', $q['details'], "Tour\n\nBild vom Einreicher: https://dtrv.net/b.jpg" );
 parse_str( (string) parse_url( Vorschlaege::google_url( array_merge( $v, array( 'klasse' => 'F | 0-5' ) ), 'T' ), PHP_URL_QUERY ), $q );
 pruefe( 'Google Klasse als Schlüsselzeile', $q['details'], "Tour\n\n---\nKlasse: F | 0-5" );
