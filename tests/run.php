@@ -138,6 +138,22 @@ pruefe( 'Google Klasse als Schlüsselzeile', $q['details'], "Tour\n\n---\nKlasse
 parse_str( (string) parse_url( Vorschlaege::google_url( array_merge( $v, array( 'geo' => $bonn ) ), 'T' ), PHP_URL_QUERY ), $q );
 pruefe( 'Google Koordinaten als Schlüsselzeile', $q['details'], "Tour\n\n---\nKoordinaten: 50.7151, 7.1393" );
 
+// Zeiten und Kalendertext für „Annehmen“ (Google-API).
+list( $zs, $ze, $zg ) = Vorschlaege::zeiten( array( 'von' => '2027-04-02', 'bis' => '2027-04-05', 'zeit_von' => '', 'zeit_bis' => '' ) );
+pruefe( 'Zeiten ganztägig', array( $zs->format( 'Y-m-d' ), $ze->format( 'Y-m-d' ), $zg ), array( '2027-04-02', '2027-04-06', true ) );
+list( $zs, $ze, $zg ) = Vorschlaege::zeiten( array( 'von' => '2027-05-23', 'bis' => '', 'zeit_von' => '10:00', 'zeit_bis' => '14:30' ) );
+pruefe( 'Zeiten mit Uhrzeit', array( $zs->format( 'Y-m-d H:i' ), $ze->format( 'Y-m-d H:i' ), $zg ), array( '2027-05-23 10:00', '2027-05-23 14:30', false ) );
+pruefe(
+	'Kalendertext',
+	Vorschlaege::kalender_text( array( 'beschreibung' => 'Tour', 'infos' => '', 'anmeldung' => 'https://a.de/', 'klasse' => 'F | 0-5', 'geo' => $bonn ) ),
+	"Tour
+
+---
+Klasse: F | 0-5
+Koordinaten: 50.7151, 7.1393
+Anmeldung: https://a.de/"
+);
+
 // Vorschlag ↔ Kalendertermin: Titel muss genau gleich sein (nur Leerzeichen egal).
 pruefe( 'Titel gleich', Vorschlaege::titel_gleich( 'Rheinradeln', 'Rheinradeln' ), true );
 pruefe( 'Titel Leerzeichen', Vorschlaege::titel_gleich( ' Siegtal  Pur ', 'Siegtal Pur' ), true );

@@ -25,6 +25,7 @@ final class Plugin {
 		add_action( 'init', array( self::class, 'block_und_shortcode' ) );
 		add_action( self::CRON_HOOK, array( Sync::class, 'wenn_faellig' ) );
 		add_action( self::CRON_HOOK, array( self::class, 'tokens_aufraeumen' ) );
+		add_action( 'dtrv_termine_abgleich_bald', array( Sync::class, 'alle' ) );
 		add_action( 'rest_api_init', array( Rest::class, 'routen' ) );
 		Karte::start();
 		add_action( 'template_redirect', array( Formular::class, 'verarbeiten' ), 1 );

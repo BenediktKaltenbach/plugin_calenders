@@ -22,6 +22,13 @@ final class Sync {
 	 */
 	private static array $index = array();
 
+	/** Nach „Annehmen“: in 2 und 15 Minuten abgleichen, damit der neue Termin bald erscheint. */
+	public static function bald(): void {
+		foreach ( array( 2, 15 ) as $minuten ) {
+			wp_schedule_single_event( time() + $minuten * MINUTE_IN_SECONDS, 'dtrv_termine_abgleich_bald', array( $minuten ) );
+		}
+	}
+
 	/** WP-Cron als Rückfall: nur abgleichen, wenn der echte Cronjob länger nicht lief. */
 	public static function wenn_faellig(): void {
 		if ( time() - (int) get_option( self::OPTION_LETZTER, 0 ) >= 50 * MINUTE_IN_SECONDS ) {

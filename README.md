@@ -98,6 +98,25 @@ The event list shows the coordinates in the "Karte" column with a link to check 
 
 The **suggestion form** has a "Ort suchen" button next to the location field. It shows up to five OpenStreetMap matches to choose from; there is no search-as-you-type, which Nominatim does not allow. A Google Maps / OpenStreetMap / Apple Maps link pasted into the same field works too: the coordinates are taken from it and the link is passed on to the board. The coordinates are included in the notification mail and are put into the pre-filled Google event as a `Koordinaten:` line.
 
+## Writing to Google Calendar (optional)
+
+By default the plugin only reads the calendars. To let **Annehmen** create events directly, give it a Google **service account**, a technical identity inside the association's own Google Cloud project. It needs no login, its access never expires, and it can only touch the calendars shared with it. One-time setup, about 10 minutes, all with the association's Google account:
+
+1. Open [console.cloud.google.com](https://console.cloud.google.com/) and create a project, e.g. "DTRV Website".
+2. **APIs & Services › Library**: search "Google Calendar API" and click **Enable**.
+3. **IAM & Admin › Service Accounts › Create service account**: name e.g. `dtrv-termine`. Skip the optional role and access steps and click **Done**.
+4. Open the new service account › **Keys › Add key › Create new key › JSON**. A `.json` file is downloaded. Keep it secret, it is the account's password.
+5. In **Google Calendar**, for each of the four calendars: Settings › **Share with specific people** › add the service account's email (`…@….iam.gserviceaccount.com`) with **"Make changes to events"**.
+6. Upload the JSON file to the web server **outside the public web folder** (with All-Inkl e.g. via FTP one level above the WordPress folder). Then add to `wp-config.php`:
+   ```php
+   define( 'DTRV_TERMINE_GOOGLE_KEY_FILE', '/www/htdocs/w0123456/dtrv-google.json' );
+   ```
+7. Termine › Einstellungen › "Google Kalender": click **Verbindung testen**. All four calendars should show ✅.
+
+The key never goes into the database or this repository. If the website were compromised, an attacker could change these four calendars, but nothing else in the Google account. To revoke access, delete the key in Google Cloud or unshare the calendars.
+
+If step 4 is blocked ("Service account key creation is disabled"), the account belongs to a Google Workspace organisation with a key policy. An admin can allow keys for this project under IAM › Organisation policies.
+
 ## Events on the Tretrollerkarte
 
 If the [My Map Plugin](https://github.com/BenediktKaltenbach/map_plugin) (1.2.0 or newer) is active, upcoming events with coordinates appear on its map. They show as calendar-style markers in a separate legend group "Termine", with one category per calendar and its own colour. The popup shows date, location, class, status and links to "Infos" (the event page) and "Anmelden".
@@ -112,12 +131,10 @@ Anyone can suggest an event via the **DTRV-Terminvorschlag** block. It starts co
 
 - **Spam protection without reCAPTCHA:** hidden honeypot field, minimum fill-in time of 5 seconds, at most 5 suggestions per IP per hour.
 - **Email** to the configured address with all details and **approve** / **reject** links. The links open a confirmation page with a button first, so email security scanners cannot trigger them. No WordPress login is needed.
-- **Termine › Vorschläge** is the review list, with tabs **Offen** (default: new and approved), **Eingetragen**, **Abgelehnt** and **Alle**. Three actions, in this order:
-  1. **Eintragen** opens Google Calendar with everything pre-filled, including key lines, and marks the suggestion as approved. The plugin itself never writes to Google, so pick the right calendar and save there.
-  2. **Erledigt – Dankes-Mail senden** sends the submitter a thank-you email and then deletes their email address.
-  3. **Ablehnen** archives the suggestion and deletes email and image.
-- The approve link in the email only marks the suggestion as approved, so someone else can enter it later.
-- **Automatic hand-over:** after every sync, open suggestions (new or approved) that now exist in the calendar are marked "Eingetragen" automatically, and the thank-you mail is sent. The date must always match, plus either **exactly the same title** (only extra spaces are ignored; "Eintragen" pre-fills Google with exactly this title) or the event is the **only one in the suggestion's category on that day**. Otherwise click "Erledigt" by hand.
+- **Termine › Vorschläge** is the review list, with tabs **Offen** (default: new and accepted), **Eingetragen**, **Abgelehnt** and **Alle**.
+- **Annehmen** (with Google write access, see below): the plugin creates the event directly in the right Google Calendar, with all key lines (class, coordinates, links, image). The same happens with the "Annehmen" link in the notification mail. Without write access, **Eintragen** opens Google Calendar pre-filled instead, and you pick the calendar and save.
+- **Ablehnen** archives the suggestion and deletes email and image.
+- **Thank-you mail only once the event is live:** after every sync, open suggestions whose event now exists on the website are marked "Eingetragen" and the submitter gets a thank-you mail with a link to the event's page. Events created via "Annehmen" are matched exactly by their Google event ID. Otherwise the date must match, plus either exactly the same title (only extra spaces are ignored) or the only event of the suggestion's category on that day. For special cases there is "Erledigt (ohne Dankes-Mail)".
 - Each suggestion shows whether WordPress handed the notification mail to the mail server (column "Mail"). Settings has a "Test-Mail senden" button and counts suggestions dropped by spam protection.
 - **Privacy:** name and email are stored only until the suggestion is processed. The IP address is only used hashed, for one hour, as a spam counter.
 

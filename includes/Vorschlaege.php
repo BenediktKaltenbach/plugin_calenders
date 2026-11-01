@@ -14,7 +14,7 @@ final class Vorschlaege {
 
 	public const STATUS = array(
 		'neu'         => 'Neu',
-		'freigegeben' => 'Freigegeben',
+		'freigegeben' => 'Angenommen',
 		'eingetragen' => 'Eingetragen',
 		'abgelehnt'   => 'Abgelehnt',
 	);
@@ -128,6 +128,28 @@ final class Vorschlaege {
 		);
 		$tz = Format::zeitzone();
 		foreach ( $offen as $id ) {
+			$uid = (string) get_post_meta( $id, '_dtrv_ical_uid', true );
+			if ( '' !== $uid ) {
+				$genau = get_posts(
+					array(
+						'post_type'      => PostType::NAME,
+						'post_status'    => 'publish',
+						'posts_per_page' => 1,
+						'fields'         => 'ids',
+						'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery
+							array(
+								'key'     => '_dtrv_schluessel',
+								'value'   => $uid . '|',
+								'compare' => 'LIKE',
+							),
+						),
+					)
+				);
+				if ( $genau ) {
+					self::online( $id, (int) $genau[0] );
+				}
+				continue; // vom Plugin angelegt: nur über die UID zuordnen
+			}
 			$von = (string) get_post_meta( $id, '_dtrv_von', true );
 			try {
 				$tag = new \DateTimeImmutable( $von, $tz );
@@ -167,8 +189,7 @@ final class Vorschlaege {
 				$treffer = $gleiche[0];
 			}
 			if ( $treffer ) {
-				update_post_meta( $id, '_dtrv_termin_id', $treffer );
-				self::status_setzen( $id, 'eingetragen' );
+				self::online( $id, $treffer );
 			}
 		}
 	}
@@ -227,19 +248,47 @@ final class Vorschlaege {
 	 * @param string $bild    Optional: Bild-URL, landet im freien Text.
 	 */
 	public static function google_url( array $d, string $titel, string $bild = '' ): string {
+		list( $s, $e, $ganztaegig ) = self::zeiten( $d );
+		$dates = $ganztaegig
+			? $s->format( 'Ymd' ) . '/' . $e->format( 'Ymd' )
+			: $s->format( 'Ymd\THis' ) . '/' . $e->format( 'Ymd\THis' );
+
+		return 'https://calendar.google.com/calendar/render?' . http_build_query(
+			array(
+				'action'   => 'TEMPLATE',
+				'text'     => $titel,
+				'dates'    => $dates,
+				'ctz'      => Format::ZEITZONE,
+				'location' => $d['ort'],
+				'details'  => self::kalender_text( $d, $bild ),
+			),
+			'',
+			'&',
+			PHP_QUERY_RFC3986
+		);
+	}
+
+	/**
+	 * Beginn, Ende (bei ganztägig exklusiv) und ganztägig ja/nein. Ohne WordPress-Abhängigkeit.
+	 *
+	 * @return array{0: \DateTimeImmutable, 1: \DateTimeImmutable, 2: bool}
+	 */
+	public static function zeiten( array $d ): array {
 		$tz = Format::zeitzone();
 		if ( $d['zeit_von'] ) {
-			$s     = new \DateTimeImmutable( $d['von'] . ' ' . $d['zeit_von'], $tz );
-			$e     = $d['zeit_bis']
+			$s = new \DateTimeImmutable( $d['von'] . ' ' . $d['zeit_von'], $tz );
+			$e = $d['zeit_bis']
 				? new \DateTimeImmutable( ( $d['bis'] ? $d['bis'] : $d['von'] ) . ' ' . $d['zeit_bis'], $tz )
 				: $s->modify( '+2 hours' );
-			$dates = $s->format( 'Ymd\THis' ) . '/' . $e->format( 'Ymd\THis' );
-		} else {
-			$s     = new \DateTimeImmutable( $d['von'], $tz );
-			$e     = ( new \DateTimeImmutable( $d['bis'] ? $d['bis'] : $d['von'], $tz ) )->modify( '+1 day' );
-			$dates = $s->format( 'Ymd' ) . '/' . $e->format( 'Ymd' );
+			return array( $s, $e, false );
 		}
+		$s = new \DateTimeImmutable( $d['von'], $tz );
+		$e = ( new \DateTimeImmutable( $d['bis'] ? $d['bis'] : $d['von'], $tz ) )->modify( '+1 day' );
+		return array( $s, $e, true );
+	}
 
+	/** Beschreibung für den Kalender: freier Text, dann „---“ und Schlüsselzeilen. Ohne WordPress-Abhängigkeit. */
+	public static function kalender_text( array $d, string $bild = '' ): string {
 		$text = trim( $d['beschreibung'] );
 		if ( '' !== $bild ) {
 			$text .= ( '' !== $text ? "\n\n" : '' ) . 'Bild vom Einreicher: ' . $bild;
@@ -260,20 +309,45 @@ final class Vorschlaege {
 		if ( $zeilen ) {
 			$text .= "\n\n---\n" . implode( "\n", $zeilen );
 		}
+		return $text;
+	}
 
-		return 'https://calendar.google.com/calendar/render?' . http_build_query(
+	/**
+	 * „Annehmen“: legt den Termin per Dienstkonto direkt im Google Kalender an.
+	 * Die Dankes-Mail folgt erst, wenn der Abgleich den Termin auf die Website geholt hat.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function annehmen( int $id ) {
+		$d = self::daten( $id );
+		if ( get_post_meta( $id, '_dtrv_google_id', true ) ) {
+			return true; // schon angelegt (Doppelklick, zweiter Vorstand)
+		}
+		if ( ! Google::konfiguriert() ) {
+			return new \WP_Error( 'dtrv', 'Google-Schreibzugriff ist nicht eingerichtet.' );
+		}
+		list( $s, $e, $ganztaegig ) = self::zeiten( $d );
+		$bild     = $d['bild'] ? (string) wp_get_attachment_url( $d['bild'] ) : '';
+		$ergebnis = Google::termin_anlegen(
+			$d['kategorie'],
 			array(
-				'action'   => 'TEMPLATE',
-				'text'     => $titel,
-				'dates'    => $dates,
-				'ctz'      => Format::ZEITZONE,
-				'location' => $d['ort'],
-				'details'  => $text,
-			),
-			'',
-			'&',
-			PHP_QUERY_RFC3986
+				'titel'      => get_post_field( 'post_title', $id ),
+				'ort'        => $d['ort'],
+				'text'       => self::kalender_text( $d, $bild ),
+				'start'      => $s,
+				'ende'       => $e,
+				'ganztaegig' => $ganztaegig,
+			)
 		);
+		if ( is_wp_error( $ergebnis ) ) {
+			return $ergebnis;
+		}
+		update_post_meta( $id, '_dtrv_google_id', $ergebnis['id'] );
+		update_post_meta( $id, '_dtrv_ical_uid', $ergebnis['ical_uid'] );
+		update_post_meta( $id, '_dtrv_google_link', $ergebnis['link'] );
+		self::status_setzen( $id, 'freigegeben' );
+		Sync::bald();
+		return true;
 	}
 
 	public static function google_link( int $id ): string {
@@ -308,12 +382,19 @@ final class Vorschlaege {
 			}
 			delete_post_meta( $id, '_dtrv_email' );
 		}
-		// Dankes-Mail nur einmal, auch bei Doppelklick oder zwei Vorständen gleichzeitig.
-		if ( 'eingetragen' === $status && add_post_meta( $id, '_dtrv_dank_gesendet', time(), true ) ) {
-			if ( self::dankes_mail( $id ) ) {
+	}
+
+	/** Termin ist auf der Website: Status „eingetragen“ und Dankes-Mail mit Link zur Termin-Seite. */
+	private static function online( int $id, int $termin_id ): void {
+		update_post_meta( $id, '_dtrv_termin_id', $termin_id );
+		self::status_setzen( $id, 'eingetragen' );
+		// Dankes-Mail nur einmal, auch wenn zwei Abgleiche gleichzeitig laufen.
+		if ( add_post_meta( $id, '_dtrv_dank_gesendet', time(), true ) ) {
+			$link = Detailseiten::infos_ziel( $termin_id, (array) get_post_meta( $termin_id, '_dtrv_felder', true ) );
+			if ( self::dankes_mail( $id, '' !== $link ? $link : home_url( '/' ) ) ) {
 				delete_post_meta( $id, '_dtrv_email' );
 			} else {
-				delete_post_meta( $id, '_dtrv_dank_gesendet' ); // erneut versuchbar
+				delete_post_meta( $id, '_dtrv_dank_gesendet' ); // beim nächsten Abgleich erneut
 			}
 		}
 	}
@@ -357,7 +438,7 @@ final class Vorschlaege {
 			'',
 			'Eingereicht von: ' . $d['name'] . ' <' . $d['email'] . '>',
 			'',
-			'Freigeben: ' . self::link( $id, 'freigeben' ),
+			'Annehmen:  ' . self::link( $id, 'freigeben' ),
 			'Ablehnen:  ' . self::link( $id, 'ablehnen' ),
 			'',
 			'Im WordPress-Admin: ' . admin_url( 'post.php?post=' . $id . '&action=edit' )
@@ -392,19 +473,19 @@ final class Vorschlaege {
 	}
 
 	/** @return bool true, wenn versendet oder keine Adresse vorhanden ist. */
-	private static function dankes_mail( int $id ): bool {
+	private static function dankes_mail( int $id, string $link ): bool {
 		$d = self::daten( $id );
 		if ( ! is_email( $d['email'] ) ) {
 			return true;
 		}
 		$text = sprintf(
-			"Hallo %s,\n\nvielen Dank für deinen Terminvorschlag „%s“ (%s). Er ist jetzt im Kalender des Deutschen Tretroller Verbands eingetragen und erscheint in Kürze auf %s.\n\nSportliche Grüße\nDeutscher Tretroller Verband e.V.",
+			"Hallo %s,\n\nvielen Dank für deinen Terminvorschlag „%s“ (%s). Er ist jetzt auf der Website des Deutschen Tretroller Verbands zu finden:\n%s\n\nSportliche Grüße\nDeutscher Tretroller Verband e.V.",
 			$d['name'],
 			get_post_field( 'post_title', $id ),
 			self::datum_text( $d ),
-			home_url( '/' )
+			$link
 		);
-		return 'ok' === self::senden( $d['email'], 'Dein Terminvorschlag ist eingetragen', $text );
+		return 'ok' === self::senden( $d['email'], 'Dein Termin ist online', $text );
 	}
 
 	/**
@@ -432,20 +513,27 @@ final class Vorschlaege {
 		$d     = self::daten( $id );
 
 		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
-			self::status_setzen( $id, $ziele[ $aktion ] );
-			if ( 'freigeben' === $aktion ) {
-				$html = '<h1>Freigegeben</h1><p>„' . $titel . '“ ist als freigegeben markiert.</p>'
-					. '<p>Jetzt noch in den Kalender <strong>' . esc_html( Plugin::kategorien()[ $d['kategorie'] ] ?? '' ) . '</strong> eintragen (oben links den Kalender auswählen):</p>'
+			if ( 'freigeben' === $aktion && Google::konfiguriert() ) {
+				$ergebnis = self::annehmen( $id );
+				$html     = is_wp_error( $ergebnis )
+					? '<h1>Nicht angelegt</h1><p>' . esc_html( $ergebnis->get_error_message() ) . '</p>'
+					: '<h1>Angenommen</h1><p>„' . $titel . '“ steht jetzt im Kalender <strong>' . esc_html( Plugin::kategorien()[ $d['kategorie'] ] ?? '' ) . '</strong>.</p>'
+						. '<p>Sobald der Abgleich ihn auf die Website geholt hat, bekommt der Einreicher automatisch eine Dankes-Mail mit Link zum Termin.</p>';
+			} elseif ( 'freigeben' === $aktion ) {
+				self::status_setzen( $id, 'freigegeben' );
+				$html = '<h1>Angenommen</h1><p>„' . $titel . '“ ist als angenommen markiert.</p>'
+					. '<p>Jetzt noch in den Kalender <strong>' . esc_html( Plugin::kategorien()[ $d['kategorie'] ] ?? '' ) . '</strong> eintragen (oben links den Kalender auswählen, Titel nicht ändern):</p>'
 					. '<p><a class="button" href="' . esc_url( self::google_link( $id ) ) . '" target="_blank" rel="noopener">Eintragen</a></p>'
-					. '<p>Danach im WordPress-Admin unter Termine › Vorschläge „Erledigt – Dankes-Mail senden“ klicken.</p>';
+					. '<p>Sobald der Termin auf der Website steht, bekommt der Einreicher automatisch eine Dankes-Mail.</p>';
 			} else {
+				self::status_setzen( $id, $ziele[ $aktion ] );
 				$html = '<h1>Abgelehnt</h1><p>„' . $titel . '“ ist abgelehnt und archiviert. Kontaktdaten und Bild wurden gelöscht.</p>';
 			}
 			wp_die( $html, 'Terminvorschlag', array( 'response' => 200 ) ); // phpcs:ignore WordPress.Security.EscapeOutput
 		}
 
-		$frage  = 'freigeben' === $aktion ? 'Vorschlag freigeben?' : 'Vorschlag ablehnen?';
-		$knopf  = 'freigeben' === $aktion ? 'Ja, freigeben' : 'Ja, ablehnen';
+		$frage  = 'freigeben' === $aktion ? 'Vorschlag annehmen?' : 'Vorschlag ablehnen?';
+		$knopf  = 'freigeben' === $aktion ? 'Ja, annehmen' : 'Ja, ablehnen';
 		$hinweis = 'neu' !== $d['status'] ? '<p><em>Aktueller Status: ' . esc_html( self::STATUS[ $d['status'] ] ?? $d['status'] ) . '</em></p>' : '';
 		$html   = '<h1>' . esc_html( $frage ) . '</h1>' . $hinweis . self::zusammenfassung( $id )
 			. '<form method="post"><p><button type="submit" class="button">' . esc_html( $knopf ) . '</button></p></form>';
@@ -552,16 +640,26 @@ final class Vorschlaege {
 	private static function aktionen( int $id ): array {
 		$status   = self::daten( $id )['status'];
 		$aktionen = array();
-		if ( in_array( $status, array( 'neu', 'freigegeben' ), true ) ) {
+		$angelegt = (bool) get_post_meta( $id, '_dtrv_google_id', true );
+		if ( Google::konfiguriert() ) {
+			if ( 'neu' === $status || ( 'freigegeben' === $status && ! $angelegt ) ) {
+				$aktionen['annehmen'] = array(
+					'label'         => 'Annehmen',
+					'url'           => self::status_url( $id, 'annehmen' ),
+					'neues_fenster' => false,
+				);
+			}
+		} elseif ( in_array( $status, array( 'neu', 'freigegeben' ), true ) ) {
 			$aktionen['google'] = array(
 				'label'         => 'Eintragen',
 				'url'           => self::status_url( $id, 'google' ),
 				'neues_fenster' => true,
 			);
 		}
-		if ( 'eingetragen' !== $status ) {
+		// Nur für Sonderfälle (Titel in Google stark geändert): ohne Dankes-Mail.
+		if ( 'freigegeben' === $status && ! $angelegt ) {
 			$aktionen['eingetragen'] = array(
-				'label'         => 'Erledigt – Dankes-Mail senden',
+				'label'         => 'Erledigt (ohne Dankes-Mail)',
 				'url'           => self::status_url( $id, 'eingetragen' ),
 				'neues_fenster' => false,
 			);
@@ -600,8 +698,16 @@ final class Vorschlaege {
 			wp_die( 'Keine Berechtigung.' );
 		}
 		$status = sanitize_key( $_GET['status'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification
+		if ( 'annehmen' === $status ) {
+			$ergebnis = self::annehmen( $id );
+			if ( is_wp_error( $ergebnis ) ) {
+				wp_die( esc_html( $ergebnis->get_error_message() ), 'Annehmen fehlgeschlagen', array( 'back_link' => true ) );
+			}
+			wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url( 'edit.php?post_type=' . self::NAME ) );
+			exit;
+		}
 		if ( 'google' === $status ) {
-			// „Eintragen“: als freigegeben markieren und Google Kalender vorausgefüllt öffnen.
+			// „Eintragen“ (ohne Google-Zugang): als angenommen markieren und Google vorausgefüllt öffnen.
 			if ( 'neu' === self::daten( $id )['status'] ) {
 				self::status_setzen( $id, 'freigegeben' );
 			}
@@ -636,8 +742,11 @@ final class Vorschlaege {
 						esc_html( $a['label'] )
 					);
 				}
-				echo '</p><p class="description"><strong>Eintragen</strong> öffnet Google Kalender mit allen Angaben (Kalender oben links wählen, speichern) und markiert den Vorschlag als freigegeben. '
-					. 'Danach <strong>Erledigt</strong> klicken: Der Einreicher bekommt eine Dankes-Mail, seine E-Mail-Adresse wird gelöscht. '
+				$hilfe = Google::konfiguriert()
+					? '<strong>Annehmen</strong> legt den Termin direkt im passenden Google Kalender an. '
+					: '<strong>Eintragen</strong> öffnet Google Kalender mit allen Angaben (Kalender oben links wählen, Titel nicht ändern, speichern). ';
+				echo '</p><p class="description">' . $hilfe // phpcs:ignore WordPress.Security.EscapeOutput
+					. 'Sobald der Abgleich den Termin auf die Website geholt hat, bekommt der Einreicher automatisch eine Dankes-Mail mit Link zum Termin; danach wird seine E-Mail-Adresse gelöscht. '
 					. '<strong>Ablehnen</strong> löscht E-Mail-Adresse und Bild.</p>';
 			},
 			self::NAME,

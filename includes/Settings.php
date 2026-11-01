@@ -44,6 +44,17 @@ final class Settings {
 		add_action( 'admin_post_dtrv_termine_abgleich', array( self::class, 'abgleich_knopf' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'skripte' ) );
 		add_action( 'admin_post_dtrv_termine_testmail', array( self::class, 'testmail_knopf' ) );
+		add_action( 'admin_post_dtrv_termine_google_test', array( self::class, 'google_test_knopf' ) );
+	}
+
+	public static function google_test_knopf(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Keine Berechtigung.' );
+		}
+		check_admin_referer( 'dtrv_termine_google_test' );
+		set_transient( 'dtrv_termine_google_test', Google::testen(), MINUTE_IN_SECONDS );
+		wp_safe_redirect( admin_url( 'edit.php?post_type=' . PostType::NAME . '&page=' . self::SEITE ) . '#google' );
+		exit;
 	}
 
 	public static function testmail_knopf(): void {
@@ -253,6 +264,33 @@ final class Settings {
 				</table>
 				<?php submit_button( 'Speichern' ); ?>
 			</form>
+
+			<h2 id="google">Google Kalender: Vorschläge direkt eintragen</h2>
+			<?php if ( Google::konfiguriert() ) : ?>
+				<p>Eingerichtet. Dienstkonto: <code><?php echo esc_html( Google::konto() ); ?></code><br>
+				Diese Adresse muss in allen vier Kalendern freigegeben sein mit „Änderungen an Terminen vornehmen“. Dann legt „Annehmen“ angenommene Vorschläge direkt im Kalender an.</p>
+				<?php
+				$test = get_transient( 'dtrv_termine_google_test' );
+				if ( is_array( $test ) ) {
+					delete_transient( 'dtrv_termine_google_test' );
+					echo '<ul>';
+					foreach ( Plugin::kategorien() as $slug => $label ) {
+						$ok = 'ok' === ( $test[ $slug ] ?? '' );
+						printf( '<li>%s %s: %s</li>', $ok ? '✅' : '❌', esc_html( $label ), esc_html( $ok ? 'darf eintragen' : (string) ( $test[ $slug ] ?? '' ) ) );
+					}
+					echo '</ul>';
+				}
+				?>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="dtrv_termine_google_test">
+					<?php wp_nonce_field( 'dtrv_termine_google_test' ); ?>
+					<?php submit_button( 'Verbindung testen', 'secondary', 'submit', false ); ?>
+				</form>
+			<?php else : ?>
+				<p>Nicht eingerichtet – angenommene Vorschläge werden über „Eintragen“ von Hand in Google gespeichert. Für den direkten Eintrag ein Google-Dienstkonto anlegen, die vier Kalender mit ihm teilen und in <code>wp-config.php</code> eintragen:</p>
+				<p><code>define( 'DTRV_TERMINE_GOOGLE_KEY_FILE', '/pfad/außerhalb/des/webroots/dtrv-google.json' );</code></p>
+				<p>Anleitung: README des Plugins auf GitHub, Abschnitt „Writing to Google Calendar“.</p>
+			<?php endif; ?>
 
 			<h2>Mailversand prüfen</h2>
 			<?php
