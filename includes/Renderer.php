@@ -93,17 +93,24 @@ final class Renderer {
 			)
 		);
 
-		// Allgemeine Termine mit „Anzeige:“ (z. B. „regelmäßig“) zuerst, Serien davon nur einmal;
-		// danach die übrigen zeitlich, beginnend mit dem nächsten.
+		// Allgemeine Termine ohne richtiges Datum zuerst: wiederkehrende Termine mit „Anzeige:“
+		// (z. B. „regelmäßig“), jede Serie nur einmal. Einmalige Termine mit „Anzeige:“ (z. B. „Mai 2027“)
+		// bleiben zeitlich einsortiert, dort ersetzt der Text nur das Datum.
+		$uids = array();
+		foreach ( $posts as $post ) {
+			$uid          = strtok( (string) get_post_meta( $post->ID, '_dtrv_schluessel', true ), '|' );
+			$uids[ $uid ] = ( $uids[ $uid ] ?? 0 ) + 1;
+		}
 		$normal    = array();
 		$allgemein = array();
-		$serien = array();
+		$serien    = array();
 		foreach ( $posts as $post ) {
-			if ( '' === self::anzeige( $post->ID ) ) {
+			$teile = explode( '|', (string) get_post_meta( $post->ID, '_dtrv_schluessel', true ) );
+			$serie = $teile[0];
+			if ( '' === self::anzeige( $post->ID ) || ( '' === ( $teile[1] ?? '' ) && $uids[ $serie ] < 2 ) ) {
 				$normal[] = $post;
 				continue;
 			}
-			$serie = strtok( (string) get_post_meta( $post->ID, '_dtrv_schluessel', true ), '|' );
 			if ( ! isset( $serien[ $serie ] ) ) {
 				$serien[ $serie ] = true;
 				$allgemein[]      = $post;

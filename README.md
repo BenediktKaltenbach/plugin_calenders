@@ -46,7 +46,7 @@ Status: vorläufig
 | `Detail:` | `Beitrag` / `Seite` / `keine` | page + post / page only / neither (default: page, post if enabled for the category) |
 | `Status:` | `abgesagt` / `verschoben` / `vorläufig` | note in the list; cancelled events are struck through |
 | `Bild:` | image URL | featured image of the event's page/post (see below) |
-| `Anzeige:` | free text, e.g. `regelmäßig` | shown instead of the date (list, infobox, map popup); listed first, followed by the other events by date, recurring events listed once |
+| `Anzeige:` | free text, e.g. `regelmäßig` | shown instead of the date (list, infobox, map popup); recurring events with this line are listed first (each series once); one-off events stay in date order |
 | `Koordinaten:` | `50.7151, 7.1393` or a Google Maps / OpenStreetMap link | exact position on the map (see below) |
 
 Keys are case- and whitespace-insensitive. Unknown keys are ignored and shown as warnings in the admin list. An event cancelled in Google (status "Cancelled") also counts as cancelled. Recurring events (RRULE) and exceptions are expanded. Moving an event to another calendar only changes its category.
