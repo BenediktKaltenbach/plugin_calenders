@@ -34,6 +34,7 @@ pruefe( 'eintägig', Format::zeitraum( $ts( '2027-05-23' ), $ts( '2027-05-24' ),
 pruefe( 'über Monatsgrenze', Format::zeitraum( $ts( '2027-04-30' ), $ts( '2027-05-03' ), true ), '30.4.–2.5.2027' );
 pruefe( 'über Jahresgrenze', Format::zeitraum( $ts( '2026-12-31' ), $ts( '2027-01-03' ), true ), '31.12.2026–2.1.2027' );
 pruefe( 'mit Uhrzeit', Format::zeitraum( $ts( '2027-05-23 10:00' ), $ts( '2027-05-23 14:00' ), false ), '23.5.2027, 10:00–14:00 Uhr' );
+pruefe( 'nur Startzeit', Format::zeitraum( $ts( '2027-05-23 10:00' ), $ts( '2027-05-23 10:00' ), false ), '23.5.2027, 10:00 Uhr' );
 pruefe( 'Flagge', Format::flagge( 'NL' ), "\u{1F1F3}\u{1F1F1}" );
 
 // Klasse je Kategorie.
@@ -144,6 +145,8 @@ list( $zs, $ze, $zg ) = Vorschlaege::zeiten( array( 'von' => '2027-04-02', 'bis'
 pruefe( 'Zeiten ganztägig', array( $zs->format( 'Y-m-d' ), $ze->format( 'Y-m-d' ), $zg ), array( '2027-04-02', '2027-04-06', true ) );
 list( $zs, $ze, $zg ) = Vorschlaege::zeiten( array( 'von' => '2027-05-23', 'bis' => '', 'zeit_von' => '10:00', 'zeit_bis' => '14:30' ) );
 pruefe( 'Zeiten mit Uhrzeit', array( $zs->format( 'Y-m-d H:i' ), $ze->format( 'Y-m-d H:i' ), $zg ), array( '2027-05-23 10:00', '2027-05-23 14:30', false ) );
+list( $zs, $ze, $zg ) = Vorschlaege::zeiten( array( 'von' => '2027-05-23', 'bis' => '', 'zeit_von' => '10:00', 'zeit_bis' => '' ) );
+pruefe( 'Zeiten nur Start', array( $zs->format( 'Y-m-d H:i' ), $ze->format( 'Y-m-d H:i' ), $zg ), array( '2027-05-23 10:00', '2027-05-23 10:00', false ) );
 pruefe(
 	'Kalendertext',
 	Vorschlaege::kalender_text( array( 'beschreibung' => 'Tour', 'infos' => '', 'anmeldung' => 'https://a.de/', 'klasse' => 'F | 0-5', 'geo' => $bonn ) ),

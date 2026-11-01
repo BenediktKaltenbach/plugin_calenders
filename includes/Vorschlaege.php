@@ -270,6 +270,7 @@ final class Vorschlaege {
 
 	/**
 	 * Beginn, Ende (bei ganztägig exklusiv) und ganztägig ja/nein. Ohne WordPress-Abhängigkeit.
+	 * Nur Startzeit angegeben: Ende = Start, dann zeigt die Website nur „10:00 Uhr“ statt eines erfundenen Zeitraums.
 	 *
 	 * @return array{0: \DateTimeImmutable, 1: \DateTimeImmutable, 2: bool}
 	 */
@@ -279,7 +280,7 @@ final class Vorschlaege {
 			$s = new \DateTimeImmutable( $d['von'] . ' ' . $d['zeit_von'], $tz );
 			$e = $d['zeit_bis']
 				? new \DateTimeImmutable( ( $d['bis'] ? $d['bis'] : $d['von'] ) . ' ' . $d['zeit_bis'], $tz )
-				: $s->modify( '+2 hours' );
+				: $s;
 			return array( $s, $e, false );
 		}
 		$s = new \DateTimeImmutable( $d['von'], $tz );
