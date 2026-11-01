@@ -93,9 +93,10 @@ final class Renderer {
 			)
 		);
 
-		// Termine mit „Anzeige:“ (z. B. „regelmäßig“) ans Ende, Serien davon nur einmal.
-		$normal = array();
-		$hinten = array();
+		// Allgemeine Termine mit „Anzeige:“ (z. B. „regelmäßig“) zuerst, Serien davon nur einmal;
+		// danach die übrigen zeitlich, beginnend mit dem nächsten.
+		$normal    = array();
+		$allgemein = array();
 		$serien = array();
 		foreach ( $posts as $post ) {
 			if ( '' === self::anzeige( $post->ID ) ) {
@@ -105,10 +106,10 @@ final class Renderer {
 			$serie = strtok( (string) get_post_meta( $post->ID, '_dtrv_schluessel', true ), '|' );
 			if ( ! isset( $serien[ $serie ] ) ) {
 				$serien[ $serie ] = true;
-				$hinten[]         = $post;
+				$allgemein[]      = $post;
 			}
 		}
-		$posts = array_merge( $normal, $hinten );
+		$posts = array_merge( $allgemein, $normal );
 		if ( $anzahl ) {
 			$posts = array_slice( $posts, 0, $anzahl );
 		}
