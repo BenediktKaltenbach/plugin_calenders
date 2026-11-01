@@ -25,6 +25,37 @@
 			box.open = true;
 		}
 
+		// Nach dem Aufklappen per Klick zum Formular scrollen und den Cursor ins erste Feld setzen –
+		// auf dem Handy merkt man sonst kaum, dass sich unten etwas geöffnet hat.
+		// Nur nach einem Klick: „toggle“ kommt auch beim Laden mit open (nach Fehlern, #dtrv-vorschlag).
+		var leiste = box.querySelector( 'summary' );
+		var geklickt = false;
+		if ( leiste ) {
+			leiste.addEventListener( 'click', function () {
+				geklickt = true;
+			} );
+		}
+		box.addEventListener( 'toggle', function () {
+			if ( ! box.open || ! geklickt ) {
+				geklickt = false;
+				return;
+			}
+			geklickt = false;
+			try {
+				box.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+			} catch ( e ) {
+				box.scrollIntoView( true );
+			}
+			var erstes = box.querySelector( '[name=titel]' );
+			if ( erstes ) {
+				try {
+					erstes.focus( { preventScroll: true } );
+				} catch ( e ) {
+					erstes.focus();
+				}
+			}
+		} );
+
 		// Felder je Kategorie ein-/ausblenden (Art nur Breitensport, Bergfaktor auch Wettkampf).
 		function felder() {
 			var wert = kategorie ? kategorie.value : '';

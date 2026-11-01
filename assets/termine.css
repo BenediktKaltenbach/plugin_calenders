@@ -327,6 +327,8 @@
 /* Vorschlagsformular zugeklappt: nur der Knopf ist sichtbar. */
 .dtrv-vorschlag-box {
 	--dtrv-akzent: #006666;
+	/* Platz für feste Kopfzeilen, wenn nach dem Aufklappen zum Formular gescrollt wird. */
+	scroll-margin-top: 90px;
 }
 
 .dtrv-vorschlag-box > summary {
@@ -342,18 +344,34 @@
 	display: none;
 }
 
-.dtrv-vorschlag__auf::after {
-	content: "▾";
-	margin-left: 10px;
+.dtrv-vorschlag__auf > span > span {
+	margin-right: 8px;
+	font-size: 1.3em;
+}
+
+.dtrv-vorschlag__offen,
+.dtrv-vorschlag-box[open] .dtrv-vorschlag__zu {
+	display: none;
+}
+
+.dtrv-vorschlag-box[open] .dtrv-vorschlag__offen {
+	display: inline;
+}
+
+.dtrv-termin__knopf--zweit > span {
+	margin-left: 8px;
+}
+
+.dtrv-vorschlag__hinweis {
+	flex-basis: 100%;
+	font-size: 0.9em;
+	opacity: 0.8;
 }
 
 .dtrv-vorschlag-box[open] > summary {
 	margin-bottom: 1.25rem;
 }
 
-.dtrv-vorschlag-box[open] .dtrv-vorschlag__auf::after {
-	content: "▴";
-}
 
 /* iOS zoomt bei Eingabefeldern unter 16px automatisch hinein. */
 .dtrv-vorschlag input,
