@@ -51,6 +51,131 @@ final class Vorschlaege {
 		add_action( 'add_meta_boxes_' . self::NAME, array( self::class, 'meta_box' ) );
 		add_action( 'admin_post_dtrv_vorschlag_status', array( self::class, 'status_knopf' ) );
 		add_action( 'admin_menu', array( self::class, 'zaehler' ), 99 );
+		add_filter( 'views_edit-' . self::NAME, array( self::class, 'ansichten' ) );
+		add_action( 'pre_get_posts', array( self::class, 'admin_abfrage' ) );
+	}
+
+	/** Reiter über der Liste: Offen (Standard) · Eingetragen · Abgelehnt · Alle. */
+	private const ANSICHTEN = array(
+		'offen'       => array( 'Offen', array( 'neu', 'freigegeben' ) ),
+		'eingetragen' => array( 'Eingetragen', array( 'eingetragen' ) ),
+		'abgelehnt'   => array( 'Abgelehnt', array( 'abgelehnt' ) ),
+		'alle'        => array( 'Alle', array() ),
+	);
+
+	private static function ansicht(): string {
+		$a = sanitize_key( $_GET['ansicht'] ?? 'offen' ); // phpcs:ignore WordPress.Security.NonceVerification
+		return isset( self::ANSICHTEN[ $a ] ) ? $a : 'offen';
+	}
+
+	private static function status_abfrage( array $status ): array {
+		return $status ? array(
+			array(
+				'key'     => '_dtrv_vstatus',
+				'value'   => $status,
+				'compare' => 'IN',
+			),
+		) : array();
+	}
+
+	public static function ansichten( array $views ): array {
+		$aktiv = self::ansicht();
+		$neu   = array();
+		foreach ( self::ANSICHTEN as $schluessel => list( $label, $status ) ) {
+			$anzahl = count(
+				get_posts(
+					array(
+						'post_type'      => self::NAME,
+						'post_status'    => 'publish',
+						'posts_per_page' => 500,
+						'fields'         => 'ids',
+						'meta_query'     => self::status_abfrage( $status ), // phpcs:ignore WordPress.DB.SlowDBQuery
+					)
+				)
+			);
+			$neu[ $schluessel ] = sprintf(
+				'<a href="%s"%s>%s <span class="count">(%d)</span></a>',
+				esc_url( add_query_arg( array( 'post_type' => self::NAME, 'ansicht' => $schluessel ), admin_url( 'edit.php' ) ) ),
+				$schluessel === $aktiv ? ' class="current" aria-current="page"' : '',
+				esc_html( $label ),
+				$anzahl
+			);
+		}
+		return $neu;
+	}
+
+	public static function admin_abfrage( \WP_Query $q ): void {
+		if ( ! is_admin() || ! $q->is_main_query() || self::NAME !== $q->get( 'post_type' ) ) {
+			return;
+		}
+		$q->set( 'meta_query', self::status_abfrage( self::ANSICHTEN[ self::ansicht() ][1] ) );
+	}
+
+	/**
+	 * Nach dem Abgleich: Offene Vorschläge (neu oder freigegeben), die inzwischen im
+	 * Kalender stehen (gleicher Tag, ähnlicher Titel), werden „eingetragen“ – mit Dankes-Mail.
+	 */
+	public static function abgleichen(): void {
+		$offen = get_posts(
+			array(
+				'post_type'      => self::NAME,
+				'post_status'    => 'publish',
+				'posts_per_page' => 100,
+				'fields'         => 'ids',
+				'meta_query'     => self::status_abfrage( array( 'neu', 'freigegeben' ) ), // phpcs:ignore WordPress.DB.SlowDBQuery
+			)
+		);
+		$tz = Format::zeitzone();
+		foreach ( $offen as $id ) {
+			$von = (string) get_post_meta( $id, '_dtrv_von', true );
+			try {
+				$tag = new \DateTimeImmutable( $von, $tz );
+			} catch ( \Exception $e ) {
+				continue;
+			}
+			$termine = get_posts(
+				array(
+					'post_type'      => PostType::NAME,
+					'post_status'    => 'publish',
+					'posts_per_page' => 20,
+					'fields'         => 'ids',
+					'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery
+						array(
+							'key'     => '_dtrv_start',
+							'value'   => array( $tag->getTimestamp(), $tag->modify( '+1 day' )->getTimestamp() - 1 ),
+							'compare' => 'BETWEEN',
+							'type'    => 'NUMERIC',
+						),
+					),
+				)
+			);
+			foreach ( $termine as $termin_id ) {
+				if ( self::titel_passt( get_post_field( 'post_title', $id ), get_post_field( 'post_title', $termin_id ) ) ) {
+					update_post_meta( $id, '_dtrv_termin_id', $termin_id );
+					self::status_setzen( $id, 'eingetragen' );
+					break;
+				}
+			}
+		}
+	}
+
+	/** Gleicher oder sehr ähnlicher Titel (Groß/Klein, Satzzeichen, Jahreszahl egal). Ohne WordPress-Abhängigkeit. */
+	public static function titel_passt( string $a, string $b ): bool {
+		$norm = static function ( string $s ): string {
+			$s = mb_strtolower( $s, 'UTF-8' );
+			$s = preg_replace( '/\b(19|20)\d{2}\b/u', '', $s );
+			return preg_replace( '/[^\p{L}\p{N}]+/u', '', $s );
+		};
+		$a = $norm( $a );
+		$b = $norm( $b );
+		if ( '' === $a || '' === $b ) {
+			return false;
+		}
+		if ( $a === $b || ( mb_strlen( $a ) >= 5 && str_contains( $b, $a ) ) || ( mb_strlen( $b ) >= 5 && str_contains( $a, $b ) ) ) {
+			return true;
+		}
+		similar_text( $a, $b, $prozent );
+		return $prozent >= 80;
 	}
 
 	public static function daten( int $id ): array {
@@ -459,7 +584,7 @@ final class Vorschlaege {
 			$aktionen[ 'dtrv_' . $schluessel ] = sprintf(
 				'<a href="%s"%s>%s</a>',
 				esc_url( $a['url'] ),
-				$a['neues_fenster'] ? ' target="_blank" rel="noopener"' : '',
+				$a['neues_fenster'] ? ' target="_blank" rel="noopener" onclick="setTimeout(function(){location.reload();},1500)"' : '',
 				esc_html( $a['label'] )
 			);
 		}
@@ -506,7 +631,7 @@ final class Vorschlaege {
 						'<a class="button%s" href="%s"%s>%s</a> ',
 						'google' === $schluessel ? ' button-primary' : '',
 						esc_url( $a['url'] ),
-						$a['neues_fenster'] ? ' target="_blank" rel="noopener"' : '',
+						$a['neues_fenster'] ? ' target="_blank" rel="noopener" onclick="setTimeout(function(){location.reload();},1500)"' : '',
 						esc_html( $a['label'] )
 					);
 				}

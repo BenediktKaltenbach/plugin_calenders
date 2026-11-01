@@ -61,6 +61,8 @@ final class Sync {
 				$status[ $slug ] = self::kategorie( $slug, $url );
 			}
 			update_option( self::OPTION_STATUS, $status, false );
+			// Freigegebene Vorschläge, die jetzt im Kalender stehen, als eingetragen markieren.
+			Vorschlaege::abgleichen();
 		} finally {
 			delete_option( self::SPERRE );
 		}
