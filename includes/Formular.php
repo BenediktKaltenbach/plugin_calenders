@@ -10,6 +10,10 @@ namespace DTRV\Termine;
 
 final class Formular {
 
+	private const ICON_KALENDER = '<svg class="dtrv-vorschlag__symbol" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M12 14v4M10 16h4"/></svg>';
+	private const ICON_AUF      = '<svg class="dtrv-vorschlag__pfeil" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+
+
 	public const OPTION_SPAM   = 'dtrv_termine_spam';
 	/** Name des Fallenfelds: bewusst ohne Bedeutung, damit Browser-Autofill es nicht ausfüllt. */
 	private const FALLE        = 'dtrv_xf7';
@@ -415,17 +419,13 @@ final class Formular {
 		$heute       = ( new \DateTimeImmutable( 'now', Format::zeitzone() ) )->format( 'Y-m-d' );
 		$datenschutz = get_privacy_policy_url();
 
-		// Klein starten: nur ein Knopf, das Formular klappt auf (nach Fehlern bleibt es offen).
+		// Klein starten: eine klickbare Zeile, das Formular klappt darunter auf (nach Fehlern bleibt es offen).
+		// Der Pfeil rechts dreht sich beim Öffnen (per CSS).
 		$html  = '<details id="dtrv-vorschlag" class="dtrv-vorschlag-box"' . ( $f ? ' open' : '' ) . '>';
-		$karte = Karte::karten_url();
-		// Knopftext zeigt den Zustand: „+ Termin einreichen“ zu, „× Formular schließen“ offen (per CSS).
-		// Der Hinweis steht direkt unter dem Knopf, den er erklärt.
-		$html .= '<summary class="dtrv-vorschlag-leiste"><span class="dtrv-vorschlag__haupt"><span class="dtrv-termin__knopf dtrv-vorschlag__auf">'
-			. '<span class="dtrv-vorschlag__zu"><span aria-hidden="true">+</span> Termin einreichen</span>'
-			. '<span class="dtrv-vorschlag__offen"><span aria-hidden="true">×</span> Formular schließen</span></span>'
+		$html .= '<summary class="dtrv-vorschlag-leiste">' . self::ICON_KALENDER
+			. '<span class="dtrv-vorschlag__text"><span class="dtrv-vorschlag__titel">Termin einreichen</span>'
 			. '<span class="dtrv-vorschlag__hinweis">Veranstaltung melden – wir prüfen und tragen sie ein.</span></span>'
-			. ( '' !== $karte ? '<a class="dtrv-termin__knopf dtrv-termin__knopf--zweit" href="' . esc_url( $karte ) . '">Zur Tretrollerkarte' . Renderer::ICON_PFEIL . '</a>' : '' )
-			. '</summary>';
+			. self::ICON_AUF . '</summary>';
 		$html .= '<form class="dtrv-vorschlag" method="post" enctype="multipart/form-data" action="#dtrv-vorschlag">';
 		if ( isset( $f['_'] ) ) {
 			$html .= '<div class="dtrv-vorschlag__meldung" role="alert">' . esc_html( $f['_'] ) . '</div>';
@@ -491,6 +491,11 @@ final class Formular {
 		$html .= '<input type="hidden" name="dtrv_vorschlag_formular" value="1">';
 		$html .= '<p><button type="submit" class="dtrv-termin__knopf">Termin einreichen</button></p>';
 		$html .= '<p class="dtrv-vorschlag__hilfe">* Pflichtfeld</p>';
-		return $html . '</form></details>';
+		$karte = Karte::karten_url();
+		$html .= '</form></details>';
+		if ( '' !== $karte ) {
+			$html .= '<p class="dtrv-vorschlag__karte"><a href="' . esc_url( $karte ) . '">Zur Tretrollerkarte' . Renderer::ICON_PFEIL . '</a></p>';
+		}
+		return $html;
 	}
 }

@@ -324,7 +324,7 @@
 	display: none !important;
 }
 
-/* Vorschlagsformular zugeklappt: nur der Knopf ist sichtbar. */
+/* Vorschlagsformular zugeklappt: nur die klickbare Zeile ist sichtbar. */
 .dtrv-vorschlag-box {
 	--dtrv-akzent: #006666;
 	/* Platz für feste Kopfzeilen, wenn nach dem Aufklappen zum Formular gescrollt wird. */
@@ -333,42 +333,74 @@
 
 .dtrv-vorschlag-box > summary {
 	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
-	gap: 10px;
+	align-items: center;
+	gap: 14px;
+	padding: 14px 16px;
+	border: 1px solid #c9dada;
+	border-left: 4px solid var(--dtrv-akzent);
 	list-style: none;
 	cursor: pointer;
-	border: 0;
+}
+
+.dtrv-vorschlag-box > summary:hover {
+	background: #f3f8f8;
 }
 
 .dtrv-vorschlag-box > summary::-webkit-details-marker {
 	display: none;
 }
 
-.dtrv-vorschlag__auf > span > span {
-	margin-right: 8px;
-	font-size: 1.3em;
+.dtrv-vorschlag__symbol,
+.dtrv-vorschlag__pfeil {
+	flex: none;
+	width: 24px;
+	height: 24px;
+	color: var(--dtrv-akzent);
 }
 
-.dtrv-vorschlag__offen,
-.dtrv-vorschlag-box[open] .dtrv-vorschlag__zu {
-	display: none;
+.dtrv-vorschlag__pfeil {
+	width: 20px;
+	height: 20px;
+	transition: transform 0.2s;
 }
 
-.dtrv-vorschlag-box[open] .dtrv-vorschlag__offen {
-	display: inline;
+.dtrv-vorschlag-box[open] .dtrv-vorschlag__pfeil {
+	transform: rotate(180deg);
 }
 
-.dtrv-vorschlag__haupt {
+.dtrv-vorschlag__text {
 	display: flex;
+	flex: 1;
 	flex-direction: column;
-	gap: 6px;
+	gap: 2px;
+}
+
+.dtrv-vorschlag__titel {
+	font-weight: 600;
 }
 
 .dtrv-vorschlag__hinweis {
 	font-size: 0.85em;
 	line-height: 1.3;
 	opacity: 0.8;
+}
+
+.dtrv-vorschlag__karte {
+	margin: 10px 0 0;
+}
+
+.dtrv-vorschlag__karte a {
+	display: inline-flex;
+	align-items: center;
+	color: var(--dtrv-akzent, #006666);
+	text-decoration: none;
+}
+
+.dtrv-vorschlag__karte svg {
+	width: 14px;
+	height: 14px;
+	margin-left: 8px;
+	fill: currentColor;
 }
 
 .dtrv-vorschlag-box[open] > summary {
